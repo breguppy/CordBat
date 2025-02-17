@@ -19,8 +19,6 @@ devtools::install_github("BorchLab/CordBat")
 #### If you run into any issues or bugs please submit a [GitHub issue](https://github.com/BorchLab/CordBat/issues) with details of the issue.
 
 - If possible please include a [reproducible example](https://reprex.tidyverse.org/). 
-Alternatively, an example with the the Seurat pbmc_small object would 
-be extremely helpful.
 
 #### Any requests for new features or enhancements can also be submitted as [GitHub issues](https://github.com/BorchLab/CordBat/issues).
 
