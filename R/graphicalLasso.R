@@ -18,6 +18,7 @@
 #' result <- graphicalLasso(X, rho = 0.1)
 #' str(result)
 #' 
+#' @importFrom stats cov
 graphicalLasso <- function(X, rho) {
   N <- nrow(X)
   p <- ncol(X)

@@ -53,5 +53,4 @@ X <- matrix(rnorm(1000), 100, 10)
 batch <- rep(1:5, each = 20)
 res <- CordBat(X, batch, ref.batch = 1, print.detail = FALSE)
 str(res)
-
 }

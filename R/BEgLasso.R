@@ -2,10 +2,13 @@
 #'
 #' This function applies a batch effect correction method using the 
 #' Group Graphical Lasso (GGM) approach. It estimates correction coefficients
-#' and applies them iteratively to adjust for batch effects in multi-group datasets.
+#' and applies them iteratively to adjust for batch effects in multi-group 
+#' datasets.
 #'
-#' @param X0.glist A list of matrices where each matrix corresponds to a batch in group 0 (reference batch).
-#' @param X1.glist A list of matrices where each matrix corresponds to a batch in group 1 (batch to be corrected).
+#' @param X0.glist A list of matrices where each matrix corresponds to a batch 
+#' in group 0 (reference batch).
+#' @param X1.glist A list of matrices where each matrix corresponds to a batch 
+#' in group 1 (batch to be corrected).
 #' @param penal.rho Regularization parameter for the graphical lasso.
 #' @param penal.ksi Regularization parameter for coefficient update.
 #' @param penal.gamma Additional penalty parameter for coefficient update.
@@ -19,14 +22,7 @@
 #'   \item \code{coef.b} - Corrected offset coefficients.
 #' }
 #' 
-#' @examples
-#' # Example usage with simulated data
-#' set.seed(123)
-#' X0.glist <- list(matrix(rnorm(100), 10, 10), matrix(rnorm(100), 10, 10))
-#' X1.glist <- list(matrix(rnorm(100), 10, 10), matrix(rnorm(100), 10, 10))
-#' res <- BEgLasso(X0.glist, X1.glist, 0.1, 0.1, 0.1, 1e-4)
-#' str(res)
-#'
+#' @importFrom stats cov
 BEgLasso <- function(X0.glist, X1.glist, penal.rho, penal.ksi,
                      penal.gamma, eps) {
   

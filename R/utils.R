@@ -1,3 +1,162 @@
+findBestPara <- function(X0.glist, X1.glist, penal.rho, eps) {
+  G <- length(X0.glist)
+  p <- ncol(X0.glist[[1]])
+  
+  N0_gvec <- rep(0, G)
+  N1_gvec <- rep(0, G)
+  N_gvec <- rep(0, G)
+  for (g in c(1: G)) {
+    N0_gvec[g] <- nrow(X0.glist[[g]])
+    N1_gvec[g] <- nrow(X1.glist[[g]])
+    N_gvec[g] <- N0_gvec[g] + N1_gvec[g]
+  }
+  
+  Sel.ksi <- 0
+  Sel.gamma <- 0
+  
+  ksis <- c(1, 0.5, 0.3, 0.1)
+  gammas <- c(1, 0.5, 0.3, 0.1)
+  
+  MinAvedist <- Inf
+  
+  for (k in c(1: length(ksis))) {
+    for (g in c(1: length(gammas))) {
+      ksi.k <- ksis[k]
+      gamma.g <- gammas[g]
+      
+      Allpara <- BEgLasso(X0.glist, X1.glist, penal.rho, ksi.k, gamma.g, eps)
+      X1.cor.glist <- Allpara$X1.cor
+      Theta.list <- Allpara$Theta
+      
+      r <- 0.5
+      
+      ebic.gvec <- rep(0, G)
+      for (i in c(1: G)) {
+        X.gi <- rbind(X0.glist[[i]], X1.cor.glist[[i]])
+        
+        # get empirical covariance matrix
+        X.gi.sca <- scale(X.gi, center = T, scale = T)
+        S_i <- cov(X.gi.sca)
+        Theta_i <- Theta.list[[i]]
+        E.num.gi <- sum(Theta_i[upper.tri(Theta_i, diag = FALSE)] != 0)
+        
+        # EBIC
+        ebic.gvec[i] <- - N_gvec[i] * (log(det(Theta_i)) - tr(S_i %*% Theta_i)) + 
+          E.num.gi * log(N_gvec[i]) + 4 * E.num.gi * r * log(p)
+      }
+      
+      ebic <- sum(ebic.gvec)
+      
+      totdist <- ebic
+      
+      
+      if (totdist < MinAvedist) {
+        MinAvedist <- totdist
+        Sel.ksi <- ksi.k
+        Sel.gamma <- gamma.g
+        
+      }
+    }
+  }
+  
+  
+  penterm <- list(penal.ksi = Sel.ksi,
+                  penal.gamma = Sel.gamma,
+                  MinAvedist = MinAvedist)
+  
+  return(penterm)
+}
+
+# -----------------------------------------
+# update correction coefficients a and b
+# -----------------------------------------
+#' @keywords internal
+update.CorrectCoef <- function(X0.glist, X1.glist, Theta.list, 
+                               a.i, b.i, penal.ksi, penal.gamma) {
+  G <- length(X0.glist)
+  p <- ncol(X0.glist[[1]])
+  
+  N0_gvec <- rep(0, G)
+  N1_gvec <- rep(0, G)
+  N_gvec <- rep(0, G)
+  
+  for (g in c(1: G)) {
+    N0_gvec[g] <- nrow(X0.glist[[g]])
+    N1_gvec[g] <- nrow(X1.glist[[g]])
+    N_gvec[g] <- N0_gvec[g] + N1_gvec[g]
+  }
+  
+  a.o <- a.i
+  b.o <- b.i
+  
+  for (j in c(1: p)) {
+    
+    # update a
+    tmp1.gvec <- rep(0, G)
+    tmp2.gvec <- rep(0, G)
+    for (g in c(1: G)) {
+      A <- diag(a.o)
+      B_gi <- rep(1, N1_gvec[g]) %*% t(b.o)
+      
+      X1.gi.cor <- X1.glist[[g]] %*% A + B_gi
+      X.gi <- rbind(X0.glist[[g]], X1.gi.cor)
+      
+      X.gi.sca <- scale(X.gi, center = TRUE, scale = TRUE)
+      X.gi.sca.attr <- attributes(X.gi.sca)
+      Mu_g <- X.gi.sca.attr$`scaled:center`
+      Sigma_g <- X.gi.sca.attr$`scaled:scale`
+      
+      Y_g <- X.gi.sca[(N0_gvec[g] + 1): N_gvec[g], ]
+      
+      Y_g[, j] <- rep(1, N1_gvec[g]) * b.o[j]
+      Y_g[, j] <- Y_g[, j] - rep(1, N1_gvec[g]) * Mu_g[j]
+      Y_g[, j] <- Y_g[, j] / (rep(1, N1_gvec[g]) * Sigma_g[j])
+      Z_g <- Y_g
+      
+      tmp <- Z_g %*% Theta.list[[g]][, j]
+      tmp1_g <- 2 / (N_gvec[g] * Sigma_g[j]) * sum(X1.glist[[g]][, j] * tmp)
+      tmp1.gvec[g] <- tmp1_g
+      tmp2_g <- 2 * Theta.list[[g]][j, j] / (N_gvec[g] * Sigma_g[j]^2) * sum(X1.glist[[g]][, j]^2)
+      tmp2.gvec[g] <- tmp2_g
+    }
+    a.o[j] <- 1 + soft(- sum(tmp1.gvec) - sum(tmp2.gvec), penal.ksi) / sum(tmp2.gvec)
+    
+    # update b
+    tmp3.gvec <- rep(0, G)
+    tmp4.gvec <- rep(0, G)
+    for (g in c(1: G)) {
+      A <- diag(a.o)
+      B_gi <- rep(1, N1_gvec[g]) %*% t(b.o)
+      X1.gi.cor <- X1.glist[[g]] %*% A + B_gi
+      X.gi <- rbind(X0.glist[[g]], X1.gi.cor)
+      
+      X.gi.sca <- scale(X.gi, center = TRUE, scale = TRUE)
+      X.gi.sca.attr <- attributes(X.gi.sca)
+      Mu_g <- X.gi.sca.attr$`scaled:center`
+      Sigma_g <- X.gi.sca.attr$`scaled:scale`
+      Y_g <- X.gi.sca[(N0_gvec[g] + 1): N_gvec[g], ]
+      
+      Y_g[, j] <- X1.glist[[g]][, j] * a.o[j]
+      Y_g[, j] <- Y_g[, j] - rep(1, N1_gvec[g]) * Mu_g[j]
+      Y_g[, j] <- Y_g[, j] / (rep(1, N1_gvec[g]) * Sigma_g[j])
+      Z_g <- Y_g
+      
+      tmp <- Z_g %*% Theta.list[[g]][, j]
+      tmp3_g <- 2 / (N_gvec[g] * Sigma_g[j]) * sum(tmp)
+      tmp3.gvec[g] <- tmp3_g
+      tmp4_g <- 2 * N1_gvec[g] * Theta.list[[g]][j, j] / (N_gvec[g] * Sigma_g[j]^2)
+      tmp4.gvec[g] <- tmp4_g
+    }
+    b.o[j] <- soft(- sum(tmp3.gvec), penal.gamma) / sum(tmp4.gvec)
+    
+  }
+  
+  coef.out <- list(coef.a = a.o, 
+                   coef.b = b.o)
+  return(coef.out)
+}
+
+
 # ----------------------------------------
 # select a proper fold number for CV
 # --------------------------------------
@@ -91,6 +250,8 @@ CDfgL <- function(V, beta_i, u, rho){
 # --------------------------------------------
 # CV + BIC select rho
 # --------------------------------------------
+#' @importFrom stats cov
+#' @importFrom lava tr
 selrho.useCVBIC <- function(X, print.detail = T) {
   N <- nrow(X)
   fold <- selfoldforCV(N)
@@ -155,6 +316,8 @@ selrho.useCVBIC <- function(X, print.detail = T) {
 # -------------------------
 # Delete outliers in data 
 # --------------------------
+#' @importFrom stats sd
+#' @importFrom mixOmics pca
 DelOutlier <- function(X) {
   pca.dat <- pca(X, ncomp = 3, center = TRUE, scale = TRUE)
   pca.dat.varX <- pca.dat$variates$X
@@ -184,6 +347,8 @@ DelOutlier <- function(X) {
 # --------------------------
 # Impute outliers in data
 # -------------------------
+#' @importFrom stats sd
+#' @importFrom DMwR2 knnImputation
 ImputeOutlier <- function(X) {
   p <- ncol(X)
   X.out <- X
@@ -207,77 +372,4 @@ ImputeOutlier <- function(X) {
   X.out <- as.matrix(X.out)
   
   return(X.out)
-}
-
-# -------------------
-# get reference batch
-# ---------------------
-getRefbat <- function(Data, batch) {
-  # cumulative RSD
-  batch <- as.factor(batch)
-  batch.num <- nlevels(batch)
-  batch.lev <- levels(batch)
-  
-  rsd <- seq(0.01, 1, 0.01)
-  rsd.cumfreq <- data.frame(batch = factor(rep(batch.lev, each = length(rsd)), 
-                                           levels = c(1: batch.num)), 
-                            rsd = rep(rsd, batch.num), 
-                            cumfreq = rep(0, length(rsd) * batch.num))
-  
-  p <- ncol(Data)
-  for (i in c(1: batch.num)) {
-    dat.i <- Data[batch == batch.lev[i], ]
-    m.val <- apply(dat.i, MARGIN = 2, FUN = mean)
-    sd.val <- apply(dat.i, MARGIN = 2, FUN = sd)
-    rsd.val <- sd.val / m.val
-    cumfreq.i <- rep(0, length(rsd))
-    
-    for (k in c(1: length(rsd))) {
-      cumfreq.i[k] <- sum(rsd.val <= rsd[k]) / p
-    }
-    rsd.cumfreq$cumfreq[rsd.cumfreq$batch == batch.lev[i]] <- cumfreq.i
-  }
-  
-  # compute the area under the curve
-  AUCFC_rsd <- rep(0, batch.num) # area under the cumulative frequency curve of RSD for each batch
-  delta_x <- 0.01
-  for (i in c(1: batch.num)) {
-    cumfreq.bati <- rsd.cumfreq[rsd.cumfreq$batch == batch.lev[i], ]$cumfreq
-    n <- length(cumfreq.bati)
-    
-    y.1 <- cumfreq.bati[1]
-    y.n <- cumfreq.bati[n]
-    y.is <- cumfreq.bati[-c(1, n)]
-    
-    AUCFC_rsd[i] <- delta_x * (0.5 * (y.1 + y.n) + sum(y.is))
-  }
-  
-  batch.rank <- as.numeric(batch.lev[order(AUCFC_rsd, decreasing = T)])
-  AUCFC_rsd.sort <- sort(AUCFC_rsd, decreasing = T)
-  
-  # plot
-  linesize <- 1
-  cbPalette <- c("#E69F00", "#56B4E9", "#009E73", "#CC79A7", 
-                 "#F0E442", "#0072B2", "#D55E00", "#999999", 
-                 "#33CC99", "#990000", "#CC99FF", "#FF00FF", 
-                 '#5500FF', '#66FF66', '#0088A8', '#A500CC')
-  
-  lab.txt <- paste0('Area under the curve: \n(decreasing order)\n')
-  for (i in c(1: batch.num)) {
-    lab.txt <- paste0(lab.txt, 
-                      'Batch ', batch.rank[i], ': ', round(AUCFC_rsd.sort[i], 4), '\n')
-  }
-  
-  ggplot(data = rsd.cumfreq, aes(x = rsd, y = cumfreq)) +
-    geom_line(aes(color = batch), linewidth = linesize) +
-    geom_vline(xintercept = 0.2, linetype = 2) +
-    geom_vline(xintercept = 0.3, linetype = 2) + 
-    geom_text(aes(x = 0.85, y = 0.02 * (batch.num + 2)), 
-              label = lab.txt, color = "black", size = 5) + 
-    xlab('RSD') + ylab('Cumulative Frequency') + xlim(0, 1) + ylim(0, 1) +
-    scale_color_manual(values = cbPalette) + scale_linetype_discrete() + theme_bw() +
-    theme(axis.title = element_text(size = 15), axis.text = element_text(size = 12, face = 'bold'),
-          legend.title = element_text(size = 15), legend.text = element_text(size = 12),
-          plot.title = element_text(size = 18, hjust = 0.5)) +
-    labs(color = 'Batch', linetype = NA, title = 'RSD')
 }

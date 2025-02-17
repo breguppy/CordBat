@@ -11,15 +11,16 @@ LazyData: true
 Depends: 
     R (>= 4.1.0)
 Imports: 
-    stats, 
-    utils, 
-    Matrix, 
-    igraph
+    DMwR2,
+    igraph,
+    lava,
+    mixOmics,
+    stats
 Suggests: 
     testthat, 
     knitr, 
     rmarkdown
 VignetteBuilder: knitr
-RoxygenNote: 7.2.3
+RoxygenNote: 7.3.2
 Language: en-US
 BugReports: https://github.com/BorchLab/CordBat/issues

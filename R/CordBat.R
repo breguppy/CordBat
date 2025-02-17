@@ -30,7 +30,7 @@
 #' batch <- rep(1:5, each = 20)
 #' res <- CordBat(X, batch, ref.batch = 1, print.detail = FALSE)
 #' str(res)
-#'
+#'@export
 CordBat <- function(X, 
                     batch, 
                     group = NULL, 

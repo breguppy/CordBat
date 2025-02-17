@@ -13,6 +13,7 @@
 #' communities <- getAllCom(X)
 #' str(communities)
 #'
+#'@importFrom stats cor
 getAllCom <- function(X) {
   N <- nrow(X)  # Number of samples
   p <- ncol(X)  # Number of features
@@ -83,3 +84,47 @@ getAllCom <- function(X) {
   
   return(lastCOM)
 }
+
+# ----------------------------------------------
+# Community detection
+# ----------------------------------------------
+#' @importFrom igraph graph_from_adjacency_matrix cluster_louvain membership 
+#' sizes
+ComtyDet <- function(G, InputCOM, minCOMSize){
+
+  nextCOM <- list()
+  k <- 0
+  
+  InputCOM.size <- lengths(InputCOM)
+  ii <- (InputCOM.size <= minCOMSize)
+  if (sum(ii) != 0) {
+    k <- sum(ii)
+    nextCOM <- InputCOM[ii]
+  }
+  
+  # get communities whose sizes are larger than minCOMSize
+  InputCOM <- InputCOM[!ii]
+  
+  # Community detection
+  for (i in c(1: length(InputCOM))) {
+    InputG <- abs(G[InputCOM[[i]], InputCOM[[i]]])
+    InputG <- InputG - diag(diag(InputG))
+    Graph.InputG <- graph_from_adjacency_matrix(InputG, 
+                                                weighted = TRUE, 
+                                                mode = "undirected")
+    COMTY <- cluster_louvain(Graph.InputG)
+    cmty.id <- membership(COMTY)
+    cmty.size <- as.vector(sizes(COMTY))
+    NumComty <- length(cmty.size)
+    
+    for (n in c(1: NumComty)) {
+      Node.Idx <- (cmty.id == n)
+      Node.InitID <- InputCOM[[i]][Node.Idx]
+      k <- k + 1
+      nextCOM[[k]] <- Node.InitID
+    }
+  }
+  
+  return(nextCOM)
+}
+
