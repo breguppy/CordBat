@@ -79,7 +79,7 @@ StARS <- function(X, b, M, print.detail = TRUE) {
   }
   
   if (print.detail) {
-    cat("Selected rho =", Sel.rho, "\n")
+    message("Selected rho =", Sel.rho, "\n")
   }
   
   return(c(Sel.rho, D_var))

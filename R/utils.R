@@ -208,9 +208,14 @@ CDfgL <- function(V, beta_i, u, rho){
   times0 <- 0
   times1 <- 0
   
+  # ADDED: iteration limit
+  maxIter <- 100
+  iter <- 0
+  
   while(TRUE){
+    iter <- iter + 1
     beta.old <- beta_i
-    for (j in c(1: p_1)) {
+    for (j in seq_len(p_1)) {
       df <- V %*% beta_i - u
       x <- beta_i[j] - df[j] / V[j, j]
       beta_i[j] <- soft(x, rho / V[j, j])
@@ -230,8 +235,8 @@ CDfgL <- function(V, beta_i, u, rho){
     }
     
     if (any(!zeroIdx)) {
-      if (all(abs((beta.new[!zeroIdx] - beta.old[!zeroIdx])
-                  / beta.old[!zeroIdx]) < eps)) {
+      rel_change <- abs((beta.new[!zeroIdx] - beta.old[!zeroIdx]) / beta.old[!zeroIdx])
+      if (all(rel_change < eps)) {
         times1 <- times1 + 1
       } else{
         times1 <- 0
@@ -240,7 +245,15 @@ CDfgL <- function(V, beta_i, u, rho){
         finished[!zeroIdx] <- TRUE
       }
     }
+    
+    # check convergence
     if (all(finished)) {
+      break
+    }
+    
+    # break if hitting max iteration
+    if (iter >= maxIter) {
+      message("CDfgL reached max iteration; breaking.")
       break
     }
   }

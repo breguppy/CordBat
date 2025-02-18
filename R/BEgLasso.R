@@ -2,13 +2,10 @@
 #'
 #' This function applies a batch effect correction method using the 
 #' Group Graphical Lasso (GGM) approach. It estimates correction coefficients
-#' and applies them iteratively to adjust for batch effects in multi-group 
-#' datasets.
+#' and applies them iteratively to adjust for batch effects in multi-group datasets.
 #'
-#' @param X0.glist A list of matrices where each matrix corresponds to a batch 
-#' in group 0 (reference batch).
-#' @param X1.glist A list of matrices where each matrix corresponds to a batch 
-#' in group 1 (batch to be corrected).
+#' @param X0.glist A list of matrices where each matrix corresponds to a batch in group 0 (reference batch).
+#' @param X1.glist A list of matrices where each matrix corresponds to a batch in group 1 (batch to be corrected).
 #' @param penal.rho Regularization parameter for the graphical lasso.
 #' @param penal.ksi Regularization parameter for coefficient update.
 #' @param penal.gamma Additional penalty parameter for coefficient update.
@@ -22,7 +19,14 @@
 #'   \item \code{coef.b} - Corrected offset coefficients.
 #' }
 #' 
-#' @importFrom stats cov
+#' @examples
+#' # Example usage with simulated data
+#' set.seed(123)
+#' X0.glist <- list(matrix(rnorm(100), 10, 10), matrix(rnorm(100), 10, 10))
+#' X1.glist <- list(matrix(rnorm(100), 10, 10), matrix(rnorm(100), 10, 10))
+#' res <- BEgLasso(X0.glist, X1.glist, 0.1, 0.1, 0.1, 1e-4)
+#' str(res)
+#'
 BEgLasso <- function(X0.glist, X1.glist, penal.rho, penal.ksi,
                      penal.gamma, eps) {
   
@@ -45,6 +49,12 @@ BEgLasso <- function(X0.glist, X1.glist, penal.rho, penal.ksi,
   coef.b <- numeric(p)
   
   coef.A <- diag(coef.a)
+  
+  # Initialize Theta and B for each group
+  for (g in seq_len(G)) {
+    Theta.list[[g]] <- matrix(0, p, p)
+    B.list[[g]] <- matrix(0, p - 1, p)
+  }
   
   # Correct X1 using initial coefficients
   X1.cor.glist <- lapply(seq_len(G), function(g) {
@@ -120,7 +130,7 @@ BEgLasso <- function(X0.glist, X1.glist, penal.rho, penal.ksi,
       
       if (any(!zeroIdx_g)) {
         dW_g <- max(abs((W_new.ndiag[[g]][!zeroIdx_g] - W_old.ndiag[[g]][!zeroIdx_g]) 
-                        / W_old.ndiag[[g]][!zeroIdx_g])) 
+                        / W_old.ndiag[[g]][!zeroIdx_g]))
         
         if (dW_g < eps) {
           times1.gvec[g] <- times1.gvec[g] + 1
