@@ -124,7 +124,7 @@ CordBat <- function(X,
   for (i in seq_len(batch.num)) Xcor.para[[i]] <- para
   
   # Initialize corrected matrices (dimensions based on outlier-removed data)
-  n_del <- nrow(X.delout)
+  n_del <- nrow(X)
   X.cor   <- matrix(0, n_del, p)
   X.cor.1 <- matrix(0, n_del, p)
   
