@@ -296,7 +296,7 @@ selrho.useCVBIC <- function(X, print.detail = T) {
   }
   
   if (print.detail) {
-    cat('CVBIC: select rho =', rho.cv, '\n')
+    message('CVBIC: select rho =', rho.cv, '\n')
   }
   
   return(c(rho.cv, MinCVerr))

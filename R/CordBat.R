@@ -125,7 +125,7 @@ CordBat <- function(X,
   
   # Initialize corrected matrices (dimensions based on outlier-removed data)
   #n_del <- nrow(X.delout)
-  #n_del <- nrow(X)
+  n_del <- nrow(X)
   X.cor   <- matrix(0, n_del, p)
   X.cor.1 <- matrix(0, n_del, p)
   
