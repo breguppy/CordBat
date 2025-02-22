@@ -221,13 +221,19 @@ findBestPara <- function(X0.glist, X1.glist, penal.rho, eps) {
         Theta_i <- Theta.list[[i]]
         E.num.gi <- sum(Theta_i[upper.tri(Theta_i, diag = FALSE)] != 0)
         
-        ebic.gvec[i] <- - N_gvec[i] * (log(det(Theta_i)) - tr(S_i %*% Theta_i)) +
-          E.num.gi * log(N_gvec[i]) + 4 * E.num.gi * r * log(p)
+        # Check determinant of Theta_i before taking its log
+        detTheta <- det(Theta_i)
+        if (is.na(detTheta) || detTheta <= 0) {
+          ebic.gvec[i] <- Inf
+        } else {
+          ebic.gvec[i] <- - N_gvec[i] * (log(detTheta) - tr(S_i %*% Theta_i)) +
+            E.num.gi * log(N_gvec[i]) + 4 * E.num.gi * r * log(p)
+        }
       }
       
       ebic <- sum(ebic.gvec)
       
-      if (ebic < MinAvedist) {
+      if (!is.na(ebic) && ebic < MinAvedist) {
         MinAvedist <- ebic
         Sel.ksi <- ksi
         Sel.gamma <- gamma
@@ -240,6 +246,7 @@ findBestPara <- function(X0.glist, X1.glist, penal.rho, eps) {
                   MinAvedist = MinAvedist)
   return(penterm)
 }
+
 
 
 # -------------------------------------------------------------
