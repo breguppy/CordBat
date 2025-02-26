@@ -41,7 +41,7 @@ soft <- function(x, lambda){
 # -------------------
 # coordinate descent for graphical lasso sub-problem
 # -------------------
-CDfgL <- function(V, beta_i, u, rho){
+CDfgL <- function(V, beta_i, u, rho, maxIter = 200, print.detail){
   p_1 <- ncol(V)
   
   # initialize
@@ -51,7 +51,6 @@ CDfgL <- function(V, beta_i, u, rho){
   times0 <- 0
   times1 <- 0
   
-  maxIter <- 100
   iter <- 0
   
   while(TRUE){
@@ -90,7 +89,7 @@ CDfgL <- function(V, beta_i, u, rho){
     
     if (all(finished)) break
     if (iter >= maxIter) {
-      message("CDfgL reached max iteration; breaking.")
+      if (print.detail) message("CDfgL reached max iteration; breaking.")
       break
     }
   }

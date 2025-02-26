@@ -204,7 +204,8 @@ CordBat <- function(X,
       # Use the valid reference and non-reference groups in downstream functions
       penterm <- findBestPara(Xb0.COMi.glist, Xb1.Batk.COMi.glist, rho, eps)
       para.out <- BEgLasso(Xb0.COMi.glist, Xb1.Batk.COMi.glist, rho, 
-                           penterm$penal.ksi, penterm$penal.gamma, eps)
+                           penterm$penal.ksi, penterm$penal.gamma, eps, 
+                           print.detail = print.detail)
       
       # Update corrected data (X.cor.1) for this non-reference batch
       # We update for each valid group; note that the order in Xb1.Batk.COMi.glist now corresponds 

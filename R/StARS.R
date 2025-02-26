@@ -34,7 +34,7 @@ StARS <- function(X, b, M, print.detail = TRUE) {
     for (i in seq_len(M)) {
       subsampIdx <- sample.int(N, b, replace = FALSE)
       Si <- X[subsampIdx, , drop = FALSE]
-      Theta <- graphicalLasso(Si, rho)$Theta
+      Theta <- graphicalLasso(Si, rho, print.detail = print.detail)$Theta
       Theta <- Theta * (abs(Theta) > 1e-6)  # Thresholding
       sum.fai <- sum.fai + (Theta != 0)
     }

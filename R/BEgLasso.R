@@ -10,6 +10,7 @@
 #' @param penal.ksi Regularization parameter for coefficient update.
 #' @param penal.gamma Additional penalty parameter for coefficient update.
 #' @param eps Convergence threshold for stopping criteria.
+#' @param print.detail Logical flag to print processing details (default: TRUE).
 #' 
 #' @return A list containing:
 #' \itemize{
@@ -28,7 +29,7 @@
 #' str(res)
 #'
 BEgLasso <- function(X0.glist, X1.glist, penal.rho, penal.ksi,
-                     penal.gamma, eps) {
+                     penal.gamma, eps, print.detail) {
   
   G <- length(X0.glist)
   p <- ncol(X0.glist[[1]])
@@ -93,7 +94,8 @@ BEgLasso <- function(X0.glist, X1.glist, penal.rho, penal.ksi,
         Wi_11 <- W.list[[g]][idx, idx]
         si_12 <- S.list[[g]][idx, j]
         
-        B.list[[g]][, j] <- CDfgL(Wi_11, B.list[[g]][, j], si_12, penal.rho)
+        B.list[[g]][, j] <- CDfgL(Wi_11, B.list[[g]][, j], si_12, penal.rho, 
+                                  print.detail = print.detail)
         W.list[[g]][idx, j] <- Wi_11 %*% B.list[[g]][, j]
         W.list[[g]][j, idx] <- W.list[[g]][idx, j]
       }

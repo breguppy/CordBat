@@ -5,6 +5,7 @@
 #'
 #' @param X A numeric matrix where rows represent samples and columns represent features.
 #' @param rho Regularization parameter controlling sparsity.
+#' @param print.detail Logical flag to print processing details (default: TRUE).
 #' 
 #' @return A list containing:
 #' \itemize{
@@ -19,7 +20,7 @@
 #' str(result)
 #' 
 #' @importFrom stats cov
-graphicalLasso <- function(X, rho) {
+graphicalLasso <- function(X, rho, print.detail) {
   N <- nrow(X)
   p <- ncol(X)
   
@@ -47,7 +48,7 @@ graphicalLasso <- function(X, rho) {
       s_12 <- S[idx, i]
       
       # Update B using penalized regression
-      B[, i] <- CDfgL(W_11, B[, i], s_12, rho)
+      B[, i] <- CDfgL(W_11, B[, i], s_12, rho, print.detail = print.detail)
       W[idx, i] <- W_11 %*% B[, i]
       W[i, idx] <- W[idx, i]
     }
