@@ -149,7 +149,8 @@ BEgLasso <- function(X0.glist, X1.glist, penal.rho, penal.ksi,
     if (all(as.vector(finished.gmat))) break
     
     # Update coefficients
-    coef.update <- update.CorrectCoef(X0.glist, X1.glist, Theta.list, coef.a, coef.b, penal.ksi, penal.gamma)
+    coef.update <- update.CorrectCoef(X0.glist, X1.glist, Theta.list, coef.a, 
+                                      coef.b, penal.ksi, penal.gamma, print.detail)
     coef.a <- coef.update$coef.a
     coef.b <- coef.update$coef.b
   }

@@ -83,18 +83,20 @@ CordBat <- function(X,
   for (i in seq_len(batch.num)) {
     cur.batch <- batch.levels[i]
     bati.idx <- which(batch == cur.batch)
-    if (length(bati.idx) == 1) next
+    if (length(bati.idx) == 1) next  # Skip batches with only 1 sample
     X.bati <- DelOutlier(X[bati.idx, , drop = FALSE])
     delsamp.bati <- X.bati$delsampIdx
-    dat.bati <- ImputeOutlier(X.bati$X.out)
+    
     if (length(delsamp.bati) > 0) {
+      dat.bati <- ImputeOutlier(X.bati$X.out)  # Perform imputation only if deletion happened
       bati.delinitIdx <- bati.idx[delsamp.bati]
       delsampIdx <- c(delsampIdx, bati.delinitIdx)
       X.delout[bati.idx[-delsamp.bati], ] <- dat.bati
     } else {
-      X.delout[bati.idx, ] <- dat.bati
+      X.delout[bati.idx, ] <- X.bati$X.out  # No deletion, use original data
     }
   }
+  
   
   if (length(delsampIdx) > 0) {
     X.nodel <- X.delout
@@ -123,7 +125,7 @@ CordBat <- function(X,
   Xcor.para <- vector("list", batch.num)
   for (i in seq_len(batch.num)) Xcor.para[[i]] <- para
   
-  # Initialize corrected matrices (dimensions based on outlier-removed data)
+  # Initialize corrected matrices 
   #n_del <- nrow(X.delout)
   n_del <- nrow(X)
   X.cor   <- matrix(0, n_del, p)

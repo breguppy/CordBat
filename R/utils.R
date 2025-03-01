@@ -101,7 +101,7 @@ CDfgL <- function(V, beta_i, u, rho, maxIter = 200, print.detail){
 # update correction coefficients a and b
 # -------------------------------------------------------------
 update.CorrectCoef <- function(X0.glist, X1.glist, Theta.list, 
-                               a.i, b.i, penal.ksi, penal.gamma) {
+                               a.i, b.i, penal.ksi, penal.gamma, print.detail) {
   G <- length(X0.glist)
   p <- ncol(X0.glist[[1]])
   
@@ -134,18 +134,35 @@ update.CorrectCoef <- function(X0.glist, X1.glist, Theta.list,
       Mu_g <- X.gi.sca.attr$`scaled:center`
       Sigma_g <- X.gi.sca.attr$`scaled:scale`
       
-      # Use only the rows corresponding to group 1 in scaled data
+      # Ensure Sigma_g[j] is non-zero and not NA
+      if (is.na(Sigma_g[j]) || abs(Sigma_g[j]) < 1e-6) {
+        Sigma_g[j] <- 1e-6
+        if (print.detail) warning(sprintf("Sigma_g[%d] was zero or NA for group
+                                          %d in a-update; replaced with 1e-6", j, g))
+      }
+      
+      # Use only the rows corresponding to group 1 in the scaled data
+      if ((N0_gvec[g] + 1) > N_gvec[g]) {
+        stop("Not enough rows in the combined data for group 1 extraction")
+      }
       Y_g <- X.gi.sca[(N0_gvec[g] + 1):N_gvec[g], ]
-      # Replace the j-th column with b.o[j] adjusted by the scaling
-      Y_g[, j] <- rep(b.o[j], N1_gvec[g]) - rep(Mu_g[j], N1_gvec[g])
-      Y_g[, j] <- Y_g[, j] / rep(Sigma_g[j], N1_gvec[g])
+      
+      # Replace the j-th column: adjust b.o[j] by the scaling factors
+      Y_g[, j] <- (rep(b.o[j], N1_gvec[g]) - Mu_g[j]) / Sigma_g[j]
       Z_g <- Y_g
       
-      tmp <- Z_g %*% Theta.list[[g]][, j]
-      tmp1.gvec[g] <- 2 / (N_gvec[g] * Sigma_g[j]) * sum(X1.glist[[g]][, j] * tmp)
-      tmp2.gvec[g] <- 2 * Theta.list[[g]][j, j] / (N_gvec[g] * Sigma_g[j]^2) * sum(X1.glist[[g]][, j]^2)
+      tmp <- as.vector(Z_g %*% Theta.list[[g]][, j])
+      tmp1.gvec[g] <- 2 / (N_gvec[g] * Sigma_g[j]) * sum(X1.glist[[g]][, j] * tmp, na.rm = TRUE)
+      tmp2.gvec[g] <- 2 * Theta.list[[g]][j, j] / (N_gvec[g] * Sigma_g[j]^2) * sum(X1.glist[[g]][, j]^2, na.rm = TRUE)
     }
-    a.o[j] <- 1 + soft(- sum(tmp1.gvec) - sum(tmp2.gvec), penal.ksi) / sum(tmp2.gvec)
+    denominator_a <- sum(tmp2.gvec, na.rm = TRUE)
+    if (abs(denominator_a) < 1e-6) {
+      if (print.detail) warning(sprintf("Denominator for updating a[%d] is zero;
+                                        keeping previous value", j))
+      a.o[j] <- a.o[j]
+    } else {
+      a.o[j] <- 1 + soft(- sum(tmp1.gvec, na.rm = TRUE) - sum(tmp2.gvec, na.rm = TRUE), penal.ksi) / denominator_a
+    }
     
     # update b[j]
     tmp3.gvec <- rep(0, G)
@@ -160,24 +177,36 @@ update.CorrectCoef <- function(X0.glist, X1.glist, Theta.list,
       X.gi.sca.attr <- attributes(X.gi.sca)
       Mu_g <- X.gi.sca.attr$`scaled:center`
       Sigma_g <- X.gi.sca.attr$`scaled:scale`
+      
+      if (is.na(Sigma_g[j]) || abs(Sigma_g[j]) < 1e-6) {
+        Sigma_g[j] <- 1e-6
+        if (print.detail) warning(sprintf("Sigma_g[%d] was zero or NA for group 
+                                          %d in b-update; replaced with 1e-6", j, g))
+      }
       Y_g <- X.gi.sca[(N0_gvec[g] + 1):N_gvec[g], ]
       
-      Y_g[, j] <- X1.glist[[g]][, j] * a.o[j] - rep(Mu_g[j], N1_gvec[g])
-      Y_g[, j] <- Y_g[, j] / rep(Sigma_g[j], N1_gvec[g])
+      # Update j-th column with the current a.o[j] and adjust by scaling
+      Y_g[, j] <- (X1.glist[[g]][, j] * a.o[j] - Mu_g[j]) / Sigma_g[j]
       Z_g <- Y_g
       
-      tmp <- Z_g %*% Theta.list[[g]][, j]
-      tmp3.gvec[g] <- 2 / (N_gvec[g] * Sigma_g[j]) * sum(tmp)
+      tmp <- as.vector(Z_g %*% Theta.list[[g]][, j])
+      tmp3.gvec[g] <- 2 / (N_gvec[g] * Sigma_g[j]) * sum(tmp, na.rm = TRUE)
       tmp4.gvec[g] <- 2 * N1_gvec[g] * Theta.list[[g]][j, j] / (N_gvec[g] * Sigma_g[j]^2)
     }
-    b.o[j] <- soft(- sum(tmp3.gvec), penal.gamma) / sum(tmp4.gvec)
-    
+    denominator_b <- sum(tmp4.gvec, na.rm = TRUE)
+    if (abs(denominator_b) < 1e-6) {
+      if (print.detail) warning(sprintf("Denominator for updating b[%d] is 
+                                        zero; keeping previous value", j))
+      b.o[j] <- b.o[j]
+    } else {
+      b.o[j] <- soft(- sum(tmp3.gvec, na.rm = TRUE), penal.gamma) / denominator_b
+    }
   }
   
-  coef.out <- list(coef.a = a.o, 
-                   coef.b = b.o)
+  coef.out <- list(coef.a = a.o, coef.b = b.o)
   return(coef.out)
 }
+
 
 
 # -------------------------------------------------------------
@@ -349,7 +378,7 @@ ImputeOutlier <- function(X) {
   p <- ncol(X)
   X.out <- X
   for (i in 1:p) {
-    dat.i <- X[, i]  # Fixed: use column i instead of p
+    dat.i <- X[, i]  # Fixed use column i instead of p
     dat.i.m <- mean(dat.i)
     dat.i.sd <- sd(dat.i)
     dat.i.max <- dat.i.m + 4 * dat.i.sd
