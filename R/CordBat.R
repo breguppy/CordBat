@@ -10,7 +10,7 @@
 #' @param ref.batch The reference batch identifier.
 #' @param eps Convergence threshold for batch effect correction (default: 1e-5).
 #' @param print.detail Logical flag to print processing details (default: TRUE).
-#' 
+#' @param skip.impute Logical flag to detect, delete and impute outliers (default: FALSE)
 #' @return A list containing:
 #' \itemize{
 #'   \item \code{batch.level} - Unique batch levels.
@@ -37,7 +37,8 @@ CordBat <- function(X,
                     grouping = FALSE, 
                     ref.batch, 
                     eps = 1e-5, 
-                    print.detail = TRUE) {
+                    print.detail = TRUE, 
+                    skip.impute = FALSE) {
   
   # If group is not provided, assign all samples to a single group
   if (is.null(group)) {
@@ -77,43 +78,42 @@ CordBat <- function(X,
   group.levels <- levels(group.f)
   group.num <- length(group.levels)
   
-  # Outlier Removal and Imputation
-  delsampIdx <- integer()
-  X.delout <- X
-  for (i in seq_len(batch.num)) {
-    cur.batch <- batch.levels[i]
-    bati.idx <- which(batch == cur.batch)
-    if (length(bati.idx) == 1) next  # Skip batches with only 1 sample
-    X.bati <- DelOutlier(X[bati.idx, , drop = FALSE])
-    delsamp.bati <- X.bati$delsampIdx
-    
-    if (length(delsamp.bati) > 0) {
-      dat.bati <- ImputeOutlier(X.bati$X.out)  # Perform imputation only if deletion happened
-      bati.delinitIdx <- bati.idx[delsamp.bati]
-      delsampIdx <- c(delsampIdx, bati.delinitIdx)
-      X.delout[bati.idx[-delsamp.bati], ] <- dat.bati
-    } else {
-      X.delout[bati.idx, ] <- X.bati$X.out  # No deletion, use original data
+  if(!skip.impute) {
+    # Outlier Removal and Imputation
+    delsampIdx <- integer()
+    X.delout <- X
+    for (i in seq_len(batch.num)) {
+      cur.batch <- batch.levels[i]
+      bati.idx <- which(batch == cur.batch)
+      if (length(bati.idx) == 1) next  # Skip batches with only 1 sample
+      X.bati <- DelOutlier(X[bati.idx, , drop = FALSE])
+      delsamp.bati <- X.bati$delsampIdx
+      
+      if (length(delsamp.bati) > 0) {
+        dat.bati <- ImputeOutlier(X.bati$X.out)  # Perform imputation only if deletion happened
+        bati.delinitIdx <- bati.idx[delsamp.bati]
+        delsampIdx <- c(delsampIdx, bati.delinitIdx)
+        X.delout[bati.idx[-delsamp.bati], ] <- dat.bati
+      } else {
+        X.delout[bati.idx, ] <- X.bati$X.out  # No deletion, use original data
+      }
     }
-  }
-  
-  
-  if (length(delsampIdx) > 0) {
-    X.nodel <- X.delout
-    #X.delout <- X.delout[-delsampIdx, , drop = FALSE]
-    #batch <- batch[-delsampIdx]
-    #group <- group[-delsampIdx]
+    if (length(delsampIdx) > 0) {
+      X.nodel <- X.delout
+    } else {
+      X.nodel <- X
+    }
+    # Refresh factors after outlier removal
+    batch.f <- factor(batch)
+    batch.levels <- levels(batch.f)
+    batch.num <- length(batch.levels)
+    group.f <- factor(group)
+    group.levels <- levels(group.f)
+    group.num <- length(group.levels)
   } else {
-    X.nodel <- X
+    X.nodel <- X # Skip outlier detection/imputation
+    X.delout <- X
   }
-  
-  # Refresh factors after outlier removal
-  batch.f <- factor(batch)
-  batch.levels <- levels(batch.f)
-  batch.num <- length(batch.levels)
-  group.f <- factor(group)
-  group.levels <- levels(group.f)
-  group.num <- length(group.levels)
   
   # Initialize correction parameters
   Theta.list <- vector("list", group.num)
