@@ -117,12 +117,12 @@ update.CorrectCoef <- function(X0.glist, X1.glist, Theta.list,
   a.o <- a.i
   b.o <- b.i
   
-  for (j in 1:p) {
+  for (j in seq_len(p)) {
     
     # update a[j]
     tmp1.gvec <- rep(0, G)
     tmp2.gvec <- rep(0, G)
-    for (g in 1:G) {
+    for (g in seq_len(G)) {
       A <- diag(a.o)
       B_gi <- matrix(rep(b.o, each = N1_gvec[g]), nrow = N1_gvec[g])
       
@@ -148,7 +148,11 @@ update.CorrectCoef <- function(X0.glist, X1.glist, Theta.list,
       Y_g <- X.gi.sca[(N0_gvec[g] + 1):N_gvec[g], ]
       
       # Replace the j-th column: adjust b.o[j] by the scaling factors
-      Y_g[, j] <- (rep(b.o[j], N1_gvec[g]) - Mu_g[j]) / Sigma_g[j]
+      if(is.null(nrow(Y_g))) {
+        Y_g[j] <- (rep(b.o[j], N1_gvec[g]) - Mu_g[j]) / Sigma_g[j]
+      }else {
+        Y_g[, j] <- (rep(b.o[j], N1_gvec[g]) - Mu_g[j]) / Sigma_g[j]
+      }
       Z_g <- Y_g
       
       tmp <- as.vector(Z_g %*% Theta.list[[g]][, j])
@@ -167,7 +171,7 @@ update.CorrectCoef <- function(X0.glist, X1.glist, Theta.list,
     # update b[j]
     tmp3.gvec <- rep(0, G)
     tmp4.gvec <- rep(0, G)
-    for (g in 1:G) {
+    for (g in seq_len(G)) {
       A <- diag(a.o)
       B_gi <- matrix(rep(b.o, each = N1_gvec[g]), nrow = N1_gvec[g])
       X1.gi.cor <- X1.glist[[g]] %*% A + B_gi
@@ -186,7 +190,11 @@ update.CorrectCoef <- function(X0.glist, X1.glist, Theta.list,
       Y_g <- X.gi.sca[(N0_gvec[g] + 1):N_gvec[g], ]
       
       # Update j-th column with the current a.o[j] and adjust by scaling
-      Y_g[, j] <- (X1.glist[[g]][, j] * a.o[j] - Mu_g[j]) / Sigma_g[j]
+      if(is.null(nrow(Y_g))) {
+        Y_g[j] <- (X1.glist[[g]][, j] * a.o[j] - Mu_g[j]) / Sigma_g[j]
+      } else {
+        Y_g[, j] <- (X1.glist[[g]][, j] * a.o[j] - Mu_g[j]) / Sigma_g[j]
+      }
       Z_g <- Y_g
       
       tmp <- as.vector(Z_g %*% Theta.list[[g]][, j])
@@ -212,7 +220,7 @@ update.CorrectCoef <- function(X0.glist, X1.glist, Theta.list,
 # -------------------------------------------------------------
 # find best parameters for penalty selection via CV+BIC (grid search)
 # -------------------------------------------------------------
-findBestPara <- function(X0.glist, X1.glist, penal.rho, eps) {
+findBestPara <- function(X0.glist, X1.glist, penal.rho, eps, print.detail) {
   G <- length(X0.glist)
   p <- ncol(X0.glist[[1]])
   
@@ -235,7 +243,7 @@ findBestPara <- function(X0.glist, X1.glist, penal.rho, eps) {
   
   for (ksi in ksi_candidates) {
     for (gamma in gamma_candidates) {
-      Allpara <- BEgLasso(X0.glist, X1.glist, penal.rho, ksi, gamma, eps)
+      Allpara <- BEgLasso(X0.glist, X1.glist, penal.rho, ksi, gamma, eps, print.detail)
       X1.cor.glist <- Allpara$X1.cor
       Theta.list <- Allpara$Theta
       
