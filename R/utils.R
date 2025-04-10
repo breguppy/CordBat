@@ -282,7 +282,7 @@ findBestPara <- function(X0.glist, X1.glist, penal.rho, eps) {
 # -------------------------------------------------------------
 #' @importFrom stats cov
 #' @importFrom lava tr
-selrho.useCVBIC <- function(X, print.detail = T) {
+selrho.useCVBIC <- function(X, print.detail = TRUE) {
   N <- nrow(X)
   fold <- selfoldforCV(N)
   CVset.size <- N / fold
@@ -310,11 +310,15 @@ selrho.useCVBIC <- function(X, print.detail = T) {
         CVerr1[i, r] <- k * log(CVset.size) - CVset.size * (log(det(Theta)) - tr(S.cv %*% Theta))
       }
     } else {
-      c.mat <- graphicalLasso(X, rho)
+      c.mat <- graphicalLasso(X, rho, print.detail)
       Theta <- c.mat$Theta
-      
-      X.sca <- scale(X, center = TRUE, scale = TRUE)
-      S <- cov(X.sca)
+      # Added to handle matrix of 1 row
+      if (nrow(X) > 1) { 
+        X.sca <- scale(X, center = TRUE, scale = TRUE) 
+        S <- cov(X.sca) 
+      } else { 
+        S <- matrix(0, ncol(X), ncol(X)) 
+      }
       
       k <- sum(Theta[upper.tri(Theta, diag = FALSE)] != 0)
       CVerr2[r] <- k * log(N) - 2 * (log(det(Theta)) - tr(S %*% Theta))

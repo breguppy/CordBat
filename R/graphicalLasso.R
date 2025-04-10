@@ -24,11 +24,15 @@ graphicalLasso <- function(X, rho, print.detail) {
   N <- nrow(X)
   p <- ncol(X)
   
-  # Standardize data: center and scale
-  X <- scale(X, center = TRUE, scale = TRUE)
-  
-  # Compute covariance matrix
-  S <- cov(X)
+  if (N > 1) { # When there are multiple samples, center and scale normally. 
+    # Standardize data: center and scale
+    X <- scale(X, center = TRUE, scale = TRUE) 
+    # Compute covariance matrix
+    S <- cov(X) 
+  } else { # With one sample, standardization isn’t possible since the sample variance is undefined.
+    # Define S as a zero matrix (since there is no variability)  
+    S <- matrix(0, p, p) 
+  }
   
   # Initialize variables
   Theta <- matrix(0, p, p)
@@ -57,7 +61,8 @@ graphicalLasso <- function(X, rho, print.detail) {
     dW <- W - W_old
     S_ndiag <- S[upper.tri(S, diag = FALSE)]
     
-    if (mean(abs(dW)) / mean(abs(S_ndiag)) < threshold) break
+    # Avoid division by zero in convergence metric
+    if (mean(abs(dW)) / mean(abs(S[upper.tri(S, diag = FALSE)] + 1e-6)) < threshold) break
   }
   
   # Compute precision matrix Theta
