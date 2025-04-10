@@ -28,8 +28,13 @@
 #' res <- BEgLasso(X0.glist, X1.glist, 0.1, 0.1, 0.1, 1e-4)
 #' str(res)
 #'
-BEgLasso <- function(X0.glist, X1.glist, penal.rho, penal.ksi,
-                     penal.gamma, eps, print.detail) {
+BEgLasso <- function(X0.glist, 
+                     X1.glist, 
+                     penal.rho, 
+                     penal.ksi,
+                     penal.gamma, 
+                     eps, 
+                     print.detail) {
   
   G <- length(X0.glist)
   p <- ncol(X0.glist[[1]])

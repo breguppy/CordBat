@@ -30,6 +30,7 @@
 #' batch <- rep(1:5, each = 20)
 #' res <- CordBat(X, batch, ref.batch = 1, print.detail = FALSE)
 #' str(res)
+#' @importFrom utils capture.output
 #' @export
 CordBat <- function(X, 
                     batch, 
@@ -171,13 +172,28 @@ CordBat <- function(X,
     if (length(Xb0.COMi.glist) == 0) next  # skip community if no valid group exists
     
     # Determine rho from the reference groups
-    rhos <- sapply(Xb0.COMi.glist, function(mat) {
-      if (nrow(mat) > 5) {
-        StARS(mat, round(0.7 * nrow(mat)), 100, print.detail)[1]
+    if (print.detail) {  
+      detailOutput <- capture.output(
+        rhos <- sapply(Xb0.COMi.glist, function(mat) {
+          if (nrow(mat) > 5) {
+            StARS(mat, round(0.7 * nrow(mat)), 100, print.detail)[1]
+          } else {
+            selrho.useCVBIC(mat, print.detail)[1]
+          }
+        }),
+      type = "message")
+      
+      message(paste(unique(detailOutput), collapse = "\n"))
       } else {
-        selrho.useCVBIC(mat, print.detail)[1]
+        rhos <- sapply(Xb0.COMi.glist, function(mat) {
+          if (nrow(mat) > 5) {
+            StARS(mat, round(0.7 * nrow(mat)), 100, print.detail)[1]
+          } else {
+            selrho.useCVBIC(mat, print.detail)[1]
+          }
+        })
       }
-    })
+    
     rho <- mean(rhos, na.rm = TRUE)
     if (print.detail) message("Set rho = ", rho)
     
@@ -204,10 +220,10 @@ CordBat <- function(X,
       if (length(Xb1.Batk.COMi.glist) == 0) next  # skip if no valid groups
       
       # Use the valid reference and non-reference groups in downstream functions
-      penterm <- findBestPara(Xb0.COMi.glist, Xb1.Batk.COMi.glist, rho, eps)
+      penterm <- findBestPara(Xb0.COMi.glist, Xb1.Batk.COMi.glist, rho, eps, print.detail)
       para.out <- BEgLasso(Xb0.COMi.glist, Xb1.Batk.COMi.glist, rho, 
                            penterm$penal.ksi, penterm$penal.gamma, eps, 
-                           print.detail = print.detail)
+                           print.detail)
       
       # Update corrected data (X.cor.1) for this non-reference batch
       # We update for each valid group; note that the order in Xb1.Batk.COMi.glist now corresponds 
