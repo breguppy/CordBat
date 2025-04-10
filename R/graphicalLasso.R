@@ -20,6 +20,7 @@
 #' str(result)
 #' 
 #' @importFrom stats cov
+#' @importFrom utils capture.output
 graphicalLasso <- function(X, rho, print.detail) {
   N <- nrow(X)
   p <- ncol(X)
@@ -45,16 +46,37 @@ graphicalLasso <- function(X, rho, print.detail) {
   repeat {
     W_old <- W  # Store previous iteration
     
-    for (i in seq_len(p)) {
-      idx <- setdiff(seq_len(p), i)  # Exclude current index
-      
-      W_11 <- W[idx, idx]
-      s_12 <- S[idx, i]
-      
-      # Update B using penalized regression
-      B[, i] <- CDfgL(W_11, B[, i], s_12, rho, print.detail = print.detail)
-      W[idx, i] <- W_11 %*% B[, i]
-      W[i, idx] <- W[idx, i]
+    if (print.detail) {
+      # Capture all output generated during the loop execution
+      detailOutput <- capture.output({
+        for (i in seq_len(p)) {
+          idx <- setdiff(seq_len(p), i)  # Exclude current index
+          
+          W_11 <- W[idx, idx]
+          s_12 <- S[idx, i]
+          
+          # Update B using penalized regression
+          B[, i] <- CDfgL(W_11, B[, i], s_12, rho, print.detail = print.detail)
+          W[idx, i] <- W_11 %*% B[, i]
+          W[i, idx] <- W[idx, i]
+        }
+      })
+      if(length(detailOutput) > 0) {
+        # Print the entire captured output as one message
+        message(paste(unique(detailOutput)))
+      }
+    } else {
+      for (i in seq_len(p)) {
+        idx <- setdiff(seq_len(p), i)  # Exclude current index
+        
+        W_11 <- W[idx, idx]
+        s_12 <- S[idx, i]
+        
+        # Update B using penalized regression
+        B[, i] <- CDfgL(W_11, B[, i], s_12, rho, print.detail = print.detail)
+        W[idx, i] <- W_11 %*% B[, i]
+        W[i, idx] <- W[idx, i]
+      }
     }
     
     # Convergence check

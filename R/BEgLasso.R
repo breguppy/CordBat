@@ -28,6 +28,7 @@
 #' res <- BEgLasso(X0.glist, X1.glist, 0.1, 0.1, 0.1, 1e-4)
 #' str(res)
 #'
+#' @importFrom utils capture.output
 BEgLasso <- function(X0.glist, 
                      X1.glist, 
                      penal.rho, 
@@ -92,19 +93,43 @@ BEgLasso <- function(X0.glist,
     })
     
     # Update B and W using graphical lasso approach
-    for (j in seq_len(p)) {
-      idx <- setdiff(seq_len(p), j)
-      
-      for (g in seq_len(G)) {
-        Wi_11 <- W.list[[g]][idx, idx]
-        si_12 <- S.list[[g]][idx, j]
+    if (print.detail) {
+      # Capture all output generated during the loop execution
+      detailOutput <- capture.output({
+        for (j in seq_len(p)) {
+          idx <- setdiff(seq_len(p), j)
+          
+          for (g in seq_len(G)) {
+            Wi_11 <- W.list[[g]][idx, idx]
+            si_12 <- S.list[[g]][idx, j]
+            
+            B.list[[g]][, j] <- CDfgL(Wi_11, B.list[[g]][, j], si_12, penal.rho, 
+                                      print.detail = print.detail)
+            W.list[[g]][idx, j] <- Wi_11 %*% B.list[[g]][, j]
+            W.list[[g]][j, idx] <- W.list[[g]][idx, j]
+          }
+        }
+      })
+      if(length(detailOutput) > 0) {
+        # Print the entire captured output as one message
+        message(paste(unique(detailOutput)))
+      }
+    } else {
+      for (j in seq_len(p)) {
+        idx <- setdiff(seq_len(p), j)
         
-        B.list[[g]][, j] <- CDfgL(Wi_11, B.list[[g]][, j], si_12, penal.rho, 
-                                  print.detail = print.detail)
-        W.list[[g]][idx, j] <- Wi_11 %*% B.list[[g]][, j]
-        W.list[[g]][j, idx] <- W.list[[g]][idx, j]
+        for (g in seq_len(G)) {
+          Wi_11 <- W.list[[g]][idx, idx]
+          si_12 <- S.list[[g]][idx, j]
+          
+          B.list[[g]][, j] <- CDfgL(Wi_11, B.list[[g]][, j], si_12, penal.rho, 
+                                    print.detail = print.detail)
+          W.list[[g]][idx, j] <- Wi_11 %*% B.list[[g]][, j]
+          W.list[[g]][j, idx] <- W.list[[g]][idx, j]
+        }
       }
     }
+    
     
     # Update Theta
     for (g in seq_len(G)) {
