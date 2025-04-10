@@ -4,12 +4,14 @@
 \alias{graphicalLasso}
 \title{Graphical Lasso Algorithm}
 \usage{
-graphicalLasso(X, rho)
+graphicalLasso(X, rho, print.detail)
 }
 \arguments{
 \item{X}{A numeric matrix where rows represent samples and columns represent features.}
 
 \item{rho}{Regularization parameter controlling sparsity.}
+
+\item{print.detail}{Logical flag to print processing details (default: TRUE).}
 }
 \value{
 A list containing:

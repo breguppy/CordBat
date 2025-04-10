@@ -11,7 +11,8 @@ CordBat(
   grouping = FALSE,
   ref.batch,
   eps = 1e-05,
-  print.detail = TRUE
+  print.detail = TRUE,
+  skip.impute = FALSE
 )
 }
 \arguments{
@@ -28,6 +29,8 @@ CordBat(
 \item{eps}{Convergence threshold for batch effect correction (default: 1e-5).}
 
 \item{print.detail}{Logical flag to print processing details (default: TRUE).}
+
+\item{skip.impute}{Logical flag to detect, delete and impute outliers (default: FALSE)}
 }
 \value{
 A list containing:
@@ -37,8 +40,8 @@ A list containing:
   \item \code{batch.new} - Updated batch assignments after outlier removal.
   \item \code{group.new} - Updated group assignments after outlier removal.
   \item \code{X.delout} - Data matrix after outlier removal.
-  \item \code{X.cor} - Final corrected data matrix.
-  \item \code{X.cor.1} - Corrected data excluding outliers.
+  \item \code{X.cor} - Fully corrected data matrix (using outlier-free imputed data).
+  \item \code{X.cor.1} - Corrected data matrix (using outlier-removed data).
   \item \code{X.cor.withQC} - Corrected data including QC samples (if present).
   \item \code{Xcor.para} - List of batch-specific correction parameters.
 }

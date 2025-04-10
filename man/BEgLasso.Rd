@@ -4,14 +4,20 @@
 \alias{BEgLasso}
 \title{Batch Effect Correction using Group Graphical Lasso}
 \usage{
-BEgLasso(X0.glist, X1.glist, penal.rho, penal.ksi, penal.gamma, eps)
+BEgLasso(
+  X0.glist,
+  X1.glist,
+  penal.rho,
+  penal.ksi,
+  penal.gamma,
+  eps,
+  print.detail
+)
 }
 \arguments{
-\item{X0.glist}{A list of matrices where each matrix corresponds to a batch 
-in group 0 (reference batch).}
+\item{X0.glist}{A list of matrices where each matrix corresponds to a batch in group 0 (reference batch).}
 
-\item{X1.glist}{A list of matrices where each matrix corresponds to a batch 
-in group 1 (batch to be corrected).}
+\item{X1.glist}{A list of matrices where each matrix corresponds to a batch in group 1 (batch to be corrected).}
 
 \item{penal.rho}{Regularization parameter for the graphical lasso.}
 
@@ -20,6 +26,8 @@ in group 1 (batch to be corrected).}
 \item{penal.gamma}{Additional penalty parameter for coefficient update.}
 
 \item{eps}{Convergence threshold for stopping criteria.}
+
+\item{print.detail}{Logical flag to print processing details (default: TRUE).}
 }
 \value{
 A list containing:
@@ -33,6 +41,14 @@ A list containing:
 \description{
 This function applies a batch effect correction method using the 
 Group Graphical Lasso (GGM) approach. It estimates correction coefficients
-and applies them iteratively to adjust for batch effects in multi-group 
-datasets.
+and applies them iteratively to adjust for batch effects in multi-group datasets.
+}
+\examples{
+# Example usage with simulated data
+set.seed(123)
+X0.glist <- list(matrix(rnorm(100), 10, 10), matrix(rnorm(100), 10, 10))
+X1.glist <- list(matrix(rnorm(100), 10, 10), matrix(rnorm(100), 10, 10))
+res <- BEgLasso(X0.glist, X1.glist, 0.1, 0.1, 0.1, 1e-4)
+str(res)
+
 }
