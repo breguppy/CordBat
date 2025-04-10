@@ -1,0 +1,75 @@
+---
+title: CordBat correction for metabolomics
+author: 
+- name: Nick Borcherding
+  email: ncborch@gmail.com
+  affiliation: Washington University in St. Louis, School of Medicine, St. Louis, MO, USA
+
+date: 'Compiled: `r format(Sys.Date(), "%B %d, %Y")`'
+
+output:
+  BiocStyle::html_document:
+    toc_float: true
+package: CordBat
+vignette: >
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteIndexEntry{Using CordBat}
+  %\VignetteEncoding{UTF-8} 
+---
+
+```{r}
+# Set seed for reproducibility
+set.seed(42)
+
+# Define parameters
+num_metabolites <- 25        # number of metabolites
+samples_per_batch <- 10      # samples per batch
+batches <- c("Ref", "Batch1", "Batch2", "Batch3", "Batch4", "Batch5")
+
+# Define batch effects for each batch
+batch_effects <- list(
+  "Ref" = 0.0,
+  "Batch1" = 1.0,
+  "Batch2" = -1.0,
+  "Batch3" = 0.5,
+  "Batch4" = -0.5,
+  "Batch5" = 1.5
+)
+
+# Create an empty list to store sample records
+data_list <- list()
+sample_counter <- 1
+
+# Loop over each batch and each sample within the batch
+for (batch in batches) {
+  for (i in 1:samples_per_batch) {
+    sample_id <- paste(batch, "Sample", i, sep = "_")
+    # Generate baseline metabolite values from a normal distribution (mean=10, sd=2)
+    baseline <- rnorm(num_metabolites, mean = 100000, sd = 2)
+    # Add the batch effect for the current batch
+    met_values <- baseline + batch_effects[[batch]]*rnorm(num_metabolites, mean = 25000, sd = 2)
+    
+    # Round the metabolite values to 2 decimal places
+    met_values <- round(met_values, 2)
+    
+    # Create a named vector for metabolites
+    names(met_values) <- paste0("Metabolite", 1:num_metabolites)
+    
+    # Combine sample information with metabolite values
+    record <- c(SampleID = sample_id, Batch = batch, met_values)
+    
+    # Store the record in the list
+    data_list[[sample_counter]] <- record
+    sample_counter <- sample_counter + 1
+  }
+}
+
+# Convert the list of records into a data.frame
+cordbat_example <- do.call(rbind, data_list)
+cordbat_example <- as.data.frame(cordbat_example)
+
+# Convert metabolite columns from character to numeric
+metabolite_cols <- grep("Metabolite", names(cordbat_example))
+cordbat_example[ , metabolite_cols] <- lapply(cordbat_example[ , metabolite_cols], as.numeric)
+```
+
