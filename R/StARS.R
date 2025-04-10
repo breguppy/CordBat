@@ -45,7 +45,17 @@ StARS <- function(X, b, M, print.detail = TRUE) {
   }
   
   # Initial stability evaluation
-  Db.5 <- compute_stability(X, b, M, rho = 0.5)
+  if (print.detail) {
+    detailOutput <- capture.output(
+      Db.5 <- compute_stability(X, b, M, rho = 0.5)
+    , type = "message")
+    if(length(detailOutput) > 0) {
+      # Print the entire captured output as one message
+      message(paste(unique(detailOutput)))
+    }
+  } else {
+    Db.5 <- compute_stability(X, b, M, rho = 0.5)
+  }
   
   # Determine search range for `rho`
   if (Db.5 > beta) {

@@ -178,10 +178,10 @@ CordBat <- function(X,
           if (nrow(mat) > 5) {
             StARS(mat, round(0.7 * nrow(mat)), 100, print.detail)[1]
           } else {
-            selrho.useCVBIC(mat, print.detail)[1]
+            selrho.useCVBIC(mat, FALSE)[1] #TODO Track down this issue with repeat
           }
-        }),
-      type = "message")
+        })
+      , type = "message")
       
       message(paste(unique(detailOutput), collapse = "\n"))
       } else {
@@ -189,7 +189,7 @@ CordBat <- function(X,
           if (nrow(mat) > 5) {
             StARS(mat, round(0.7 * nrow(mat)), 100, print.detail)[1]
           } else {
-            selrho.useCVBIC(mat, print.detail)[1]
+            selrho.useCVBIC(mat, print.detail)[1] 
           }
         })
       }

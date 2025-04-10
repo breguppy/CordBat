@@ -95,7 +95,7 @@ BEgLasso <- function(X0.glist,
     # Update B and W using graphical lasso approach
     if (print.detail) {
       # Capture all output generated during the loop execution
-      detailOutput <- capture.output({
+      detailOutput <- capture.output(
         for (j in seq_len(p)) {
           idx <- setdiff(seq_len(p), j)
           
@@ -109,7 +109,7 @@ BEgLasso <- function(X0.glist,
             W.list[[g]][j, idx] <- W.list[[g]][idx, j]
           }
         }
-      })
+      , type = "message")
       if(length(detailOutput) > 0) {
         # Print the entire captured output as one message
         message(paste(unique(detailOutput)))

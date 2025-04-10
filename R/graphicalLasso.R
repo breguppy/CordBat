@@ -48,7 +48,7 @@ graphicalLasso <- function(X, rho, print.detail) {
     
     if (print.detail) {
       # Capture all output generated during the loop execution
-      detailOutput <- capture.output({
+      detailOutput <- capture.output(
         for (i in seq_len(p)) {
           idx <- setdiff(seq_len(p), i)  # Exclude current index
           
@@ -59,8 +59,7 @@ graphicalLasso <- function(X, rho, print.detail) {
           B[, i] <- CDfgL(W_11, B[, i], s_12, rho, print.detail = print.detail)
           W[idx, i] <- W_11 %*% B[, i]
           W[i, idx] <- W[idx, i]
-        }
-      })
+        }, type = "message")
       if(length(detailOutput) > 0) {
         # Print the entire captured output as one message
         message(paste(unique(detailOutput)))
