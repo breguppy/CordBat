@@ -17,18 +17,29 @@ vignette: >
   %\VignetteEncoding{UTF-8} 
 ---
 
+# Load Libraries 
+
+```{r}
+library(CordBat)
+library(ggplot2)
+```
+
+# Generate Synthetic Data
+
+The synthetic dataset is engineered to mirror realistic mass spectrometry outputs by simulating 25 metabolites across six distinct batches (five experimental batches plus one reference batch). For each sample, baseline metabolite values are generated from a normal distribution with a high mean (e.g., 100000) to reflect typical intensity scales, with slight random noise. A batch effect is introduced by scaling a secondary normal distribution (with its own mean and minimal variability) and adding this offset to the baseline values. In addition, a grouping variable assigns each sample into one of two groups, enabling the assessment of both batch-related and intrinsic sample variability.
+
 ```{r}
 # Set seed for reproducibility
 set.seed(42)
 
 # Define parameters
-num_metabolites <- 25        # number of metabolites
-samples_per_batch <- 10      # samples per batch
-batches <- c("Ref", "Batch1", "Batch2", "Batch3", "Batch4", "Batch5")
+num_metabolites   <- 25         # number of metabolites
+samples_per_batch <- 10         # samples per batch 
+batches           <- c("Ref", "Batch1", "Batch2", "Batch3", "Batch4", "Batch5")
 
 # Define batch effects for each batch
 batch_effects <- list(
-  "Ref" = 0.0,
+  "Ref"    = 0.0,
   "Batch1" = 1.0,
   "Batch2" = -1.0,
   "Batch3" = 0.5,
@@ -43,20 +54,26 @@ sample_counter <- 1
 # Loop over each batch and each sample within the batch
 for (batch in batches) {
   for (i in 1:samples_per_batch) {
+    # Create a unique sample ID
     sample_id <- paste(batch, "Sample", i, sep = "_")
-    # Generate baseline metabolite values from a normal distribution (mean=10, sd=2)
-    baseline <- rnorm(num_metabolites, mean = 100000, sd = 2)
-    # Add the batch effect for the current batch
-    met_values <- baseline + batch_effects[[batch]]*rnorm(num_metabolites, mean = 25000, sd = 2)
+    
+    # Assign Group: first half as "Group1", second half as "Group2"
+    group <- if (i <= samples_per_batch / 2) "Group1" else "Group2"
+    
+    # Generate baseline metabolite values from a normal distribution 
+    baseline <- rnorm(num_metabolites, mean = 100000, sd = 10000)
+    
+    # Simulate a realistic batch effect by multiplying with a random factor 
+    met_values <- baseline + batch_effects[[batch]] * rnorm(num_metabolites, mean = 25000, sd = 5000)
     
     # Round the metabolite values to 2 decimal places
     met_values <- round(met_values, 2)
     
-    # Create a named vector for metabolites
+    # Name the metabolite variables (Metabolite1, Metabolite2, …)
     names(met_values) <- paste0("Metabolite", 1:num_metabolites)
     
-    # Combine sample information with metabolite values
-    record <- c(SampleID = sample_id, Batch = batch, met_values)
+    # Combine sample information with metabolite values.
+    record <- c(SampleID = sample_id, Batch = batch, Group = group, met_values)
     
     # Store the record in the list
     data_list[[sample_counter]] <- record
@@ -64,12 +81,55 @@ for (batch in batches) {
   }
 }
 
-# Convert the list of records into a data.frame
+# Convert the list of records into a data frame.
 cordbat_example <- do.call(rbind, data_list)
-cordbat_example <- as.data.frame(cordbat_example)
+cordbat_example <- as.data.frame(cordbat_example, stringsAsFactors = FALSE)
 
 # Convert metabolite columns from character to numeric
 metabolite_cols <- grep("Metabolite", names(cordbat_example))
 cordbat_example[ , metabolite_cols] <- lapply(cordbat_example[ , metabolite_cols], as.numeric)
+
+# Optionally, convert Batch and Group to factors
+cordbat_example$Batch <- factor(cordbat_example$Batch, levels = batches)
+cordbat_example$Group <- factor(cordbat_example$Group, levels = c("Group1", "Group2"))
 ```
+
+## Visualizing Batch/Group with PCA
+
+```{r}
+# Identify the columns with metabolite measurements
+metabolite_cols <- grep("Metabolite", names(cordbat_example))
+
+# Perform PCA on the metabolite data; scaling is recommended
+pca_res <- prcomp(cordbat_example[, metabolite_cols], scale. = TRUE)
+
+# Combine PCA results with the metadata
+pca_df <- data.frame(
+  SampleID = cordbat_example$SampleID,
+  Batch    = cordbat_example$Batch,
+  Group    = cordbat_example$Group,
+  PC1      = pca_res$x[, 1],
+  PC2      = pca_res$x[, 2]
+)
+
+# Plot PCA colored by Batch
+p_batch <- ggplot(pca_df, aes(x = PC1, y = PC2, color = Batch)) +
+  geom_point(size = 3, alpha = 0.8) +
+  theme_minimal() +
+  labs(title = "PCA of Mass Spec Data - Colored by Batch",
+       x = "Principal Component 1",
+       y = "Principal Component 2")
+
+# Plot PCA colored by Group
+p_group <- ggplot(pca_df, aes(x = PC1, y = PC2, color = Group)) +
+  geom_point(size = 3, alpha = 0.8) +
+  theme_minimal() +
+  labs(title = "PCA of Mass Spec Data - Colored by Group",
+       x = "Principal Component 1",
+       y = "Principal Component 2")
+
+print(p_batch)
+print(p_group)
+```
+
 

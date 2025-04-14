@@ -79,9 +79,9 @@ CordBat <- function(X,
   group.levels <- levels(group.f)
   group.num <- length(group.levels)
   
+  delsampIdx <- integer()
   if(!skip.impute) {
     # Outlier Removal and Imputation
-    delsampIdx <- integer()
     X.delout <- X
     for (i in seq_len(batch.num)) {
       cur.batch <- batch.levels[i]
