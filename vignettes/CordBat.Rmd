@@ -26,7 +26,9 @@ library(ggplot2)
 
 # Generate Synthetic Data
 
-The synthetic dataset is engineered to mirror realistic mass spectrometry outputs by simulating 25 metabolites across six distinct batches (five experimental batches plus one reference batch). For each sample, baseline metabolite values are generated from a normal distribution with a high mean (e.g., 100000) to reflect typical intensity scales, with slight random noise. A batch effect is introduced by scaling a secondary normal distribution (with its own mean and minimal variability) and adding this offset to the baseline values. In addition, a grouping variable assigns each sample into one of two groups, enabling the assessment of both batch-related and intrinsic sample variability.
+The synthetic dataset is engineered to mirror realistic mass spectrometry outputs by simulating 25 metabolites across six distinct batches (five experimental batches plus one reference batch). Unlike a uniform baseline, each metabolite is assigned a unique baseline intensity drawn from a normal distribution with a high mean (around 100,000) and moderate variability (e.g., SD ≈ 10,000) to better reflect inherent differences in metabolite abundance. For each sample, small random noise is added to these metabolite-specific values, mimicking the natural variability seen in mass spec measurements. A batch effect is then introduced by scaling a secondary normal distribution, with its own mean (approximately 25,000) and minimal variability, by a batch-specific coefficient and adding the resulting offset to the baseline values. This simulates systematic technical deviations between batches.
+
+In addition to the batch effects, a grouping variable assigns each sample into one of two groups. To model biologically meaningful differences, samples in one group receive an additional fixed offset for a subset of metabolites (e.g., the first 10 metabolites). This deliberate group effect enables the assessment of both technical batch-related biases and intrinsic sample variations, thereby providing a rigorous framework for evaluating batch correction methods and community detection algorithms.
 
 ```{r}
 # Set seed for reproducibility
@@ -34,8 +36,12 @@ set.seed(42)
 
 # Define parameters
 num_metabolites   <- 25         # number of metabolites
-samples_per_batch <- 10         # samples per batch 
+samples_per_batch <- 10         # samples per batch (should be even for balanced grouping)
 batches           <- c("Ref", "Batch1", "Batch2", "Batch3", "Batch4", "Batch5")
+
+# Define metabolite-specific baseline means to simulate realistic differences.
+# Each metabolite’s mean is drawn from a normal distribution with mean = 100000 and sd = 5000.
+met_means <- rnorm(num_metabolites, mean = 100000, sd = 10000)
 
 # Define batch effects for each batch
 batch_effects <- list(
@@ -46,6 +52,9 @@ batch_effects <- list(
   "Batch4" = -0.5,
   "Batch5" = 1.5
 )
+
+# Define a systematic group effect.
+group_offset <- c(rep(500, 10), rep(0, num_metabolites - 10))
 
 # Create an empty list to store sample records
 data_list <- list()
@@ -60,19 +69,27 @@ for (batch in batches) {
     # Assign Group: first half as "Group1", second half as "Group2"
     group <- if (i <= samples_per_batch / 2) "Group1" else "Group2"
     
-    # Generate baseline metabolite values from a normal distribution 
-    baseline <- rnorm(num_metabolites, mean = 100000, sd = 10000)
+    # Generate baseline metabolite values with metabolite-specific means
+    baseline <- rnorm(num_metabolites, mean = met_means, sd = 2)
     
-    # Simulate a realistic batch effect by multiplying with a random factor 
-    met_values <- baseline + batch_effects[[batch]] * rnorm(num_metabolites, mean = 25000, sd = 5000)
+    # Simulate a realistic batch effect by scaling a random factor 
+    batch_effect_value <- batch_effects[[batch]] * rnorm(num_metabolites, mean = 25000, sd = 5000)
+    
+    # Compute the adjusted metabolite values as baseline plus batch effect
+    met_values <- baseline + batch_effect_value
+    
+    # Apply group effect if sample is in Group2 
+    if (group == "Group2") {
+      met_values <- met_values + group_offset
+    }
     
     # Round the metabolite values to 2 decimal places
     met_values <- round(met_values, 2)
     
-    # Name the metabolite variables (Metabolite1, Metabolite2, …)
+    # Name the metabolite variables 
     names(met_values) <- paste0("Metabolite", 1:num_metabolites)
     
-    # Combine sample information with metabolite values.
+    # Combine sample information with metabolite values into a record
     record <- c(SampleID = sample_id, Batch = batch, Group = group, met_values)
     
     # Store the record in the list
@@ -87,9 +104,9 @@ cordbat_example <- as.data.frame(cordbat_example, stringsAsFactors = FALSE)
 
 # Convert metabolite columns from character to numeric
 metabolite_cols <- grep("Metabolite", names(cordbat_example))
-cordbat_example[ , metabolite_cols] <- lapply(cordbat_example[ , metabolite_cols], as.numeric)
+cordbat_example[, metabolite_cols] <- lapply(cordbat_example[, metabolite_cols], as.numeric)
 
-# Optionally, convert Batch and Group to factors
+# Optionally, convert Batch and Group columns to factors
 cordbat_example$Batch <- factor(cordbat_example$Batch, levels = batches)
 cordbat_example$Group <- factor(cordbat_example$Group, levels = c("Group1", "Group2"))
 ```
