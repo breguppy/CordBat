@@ -4,7 +4,9 @@ author:
 - name: Nick Borcherding
   email: ncborch@gmail.com
   affiliation: Washington University in St. Louis, School of Medicine, St. Louis, MO, USA
-
+- name: Breanna Guppy
+  email: breanna-guppy@uiowa.edu
+  affiliation: University of Iowa, Carver College of Medicine, Iowa City, IA, USA 
 date: 'Compiled: `r format(Sys.Date(), "%B %d, %Y")`'
 
 output:
@@ -30,6 +32,8 @@ The synthetic dataset is engineered to mirror realistic mass spectrometry output
 
 In addition to the batch effects, a grouping variable assigns each sample into one of two groups. To model biologically meaningful differences, samples in one group receive an a second multiplicative adjustment to the baseline metabolite values by modifying selected subsets of metabolites with small, normally distributed multipliers that simulate downregulated, slight upregulated, or strong upregulated metabolite groups. This deliberate group effect enables the assessment of both technical batch-related biases and intrinsic sample variations, thereby providing a rigorous framework for evaluating batch correction methods and community detection algorithms.
 
+## Apply Group Effect to Baseline Metabolite Measurements
+
 ```{r}
 # Set seed for reproducibility
 set.seed(42)
@@ -42,16 +46,6 @@ batches           <- c("Ref", "Batch1", "Batch2", "Batch3", "Batch4", "Batch5")
 # Define metabolite-specific baseline means to simulate realistic differences.
 # Each metabolite’s mean is drawn from a normal distribution with mean = 100000 and sd = 5000.
 met_means <- rnorm(num_metabolites, mean = 100000, sd = 10000)
-
-# Define batch effects for each batch
-batch_effects <- list(
-  "Ref"    = 0.00,   # No effect
-  "Batch1" = -0.25,  # 25% decrease
-  "Batch2" = -0.15,  # 15% decrease
-  "Batch3" =  0.12,  # 12% increase
-  "Batch4" = -0.08,  # 8% decrease
-  "Batch5" =  0.20   # 20% increase
-)
 
 # Define a systematic group effect.
 # Randomly assign metabolites to each type of group effect
@@ -79,13 +73,6 @@ for (batch in batches) {
     # Generate baseline metabolite values with metabolite-specific means
     baseline <- rnorm(num_metabolites, mean = met_means, sd = 2)
     
-    # Generate a multiplicative batch effect
-    batch_multiplier <- rnorm(
-      num_metabolites,
-      mean = 1 + batch_effects[[batch]],  # center around desired % change
-      sd = 0.04                           # introduce batch variability
-    )
-    
     # Default: all metabolite effects = 1 (i.e., no change)
     group_multiplier <- rep(1, num_metabolites)
 
@@ -97,8 +84,7 @@ for (batch in batches) {
     }
 
     # Apply multiplicative batch and group effects
-    met_values <- baseline * batch_multiplier * group_multiplier
-    
+    met_values <- baseline * group_multiplier
     
     # Round the metabolite values to 2 decimal places
     met_values <- round(met_values, 2)
@@ -128,7 +114,7 @@ cordbat_example$Batch <- factor(cordbat_example$Batch, levels = batches)
 cordbat_example$Group <- factor(cordbat_example$Group, levels = c("Group1", "Group2"))
 ```
 
-## Visualizing Batch/Group with PCA
+## Visualizing Group Effect with PCA
 
 ```{r}
 # Identify the columns with metabolite measurements
@@ -150,7 +136,7 @@ pca_df <- data.frame(
 p_batch <- ggplot(pca_df, aes(x = PC1, y = PC2, color = Batch)) +
   geom_point(size = 3, alpha = 0.8) +
   theme_minimal() +
-  labs(title = "PCA of Mass Spec Data - Colored by Batch",
+  labs(title = "PCA of Group Effect - Colored by Batch",
        x = "Principal Component 1",
        y = "Principal Component 2")
 
@@ -158,7 +144,80 @@ p_batch <- ggplot(pca_df, aes(x = PC1, y = PC2, color = Batch)) +
 p_group <- ggplot(pca_df, aes(x = PC1, y = PC2, color = Group)) +
   geom_point(size = 3, alpha = 0.8) +
   theme_minimal() +
-  labs(title = "PCA of Mass Spec Data - Colored by Group",
+  labs(title = "PCA of Group Effect - Colored by Group",
+       x = "Principal Component 1",
+       y = "Principal Component 2")
+
+print(p_batch)
+print(p_group)
+```
+
+## Apply Batch Effect to Data
+
+```{r}
+# Define batch effect again
+batch_effects <- list(
+  "Ref"    = 0.00,   # No effect
+  "Batch1" = -0.25,  # 25% decrease
+  "Batch2" = -0.15,  # 15% decrease
+  "Batch3" =  0.12,  # 12% increase
+  "Batch4" = -0.08,  # 8% decrease
+  "Batch5" =  0.20   # 20% increase
+)
+
+# Apply batch effect to metabolite columns
+set.seed(42)  # For reproducibility of batch variation
+
+for (batch in levels(cordbat_example$Batch)) {
+  batch_rows <- which(cordbat_example$Batch == batch)
+  
+  # Simulate variability around the intended mean multiplier
+  batch_multiplier <- matrix(
+    rnorm(length(batch_rows) * num_metabolites,
+          mean = 1 + batch_effects[[batch]],
+          sd = 0.04),
+    nrow = length(batch_rows),
+    ncol = num_metabolites
+  )
+  
+  # Multiply metabolite values by batch multiplier
+  cordbat_example[batch_rows, metabolite_cols] <- 
+    as.matrix(cordbat_example[batch_rows, metabolite_cols]) * batch_multiplier
+}
+
+```
+
+## Visualize Batch and Group Effect with PCA
+
+```{r}
+# Identify the columns with metabolite measurements
+metabolite_cols <- grep("Metabolite", names(cordbat_example))
+
+# Perform PCA on the metabolite data; scaling is recommended
+pca_res <- prcomp(cordbat_example[, metabolite_cols], scale. = TRUE)
+
+# Combine PCA results with the metadata
+pca_df <- data.frame(
+  SampleID = cordbat_example$SampleID,
+  Batch    = cordbat_example$Batch,
+  Group    = cordbat_example$Group,
+  PC1      = pca_res$x[, 1],
+  PC2      = pca_res$x[, 2]
+)
+
+# Plot PCA colored by Batch
+p_batch <- ggplot(pca_df, aes(x = PC1, y = PC2, color = Batch)) +
+  geom_point(size = 3, alpha = 0.8) +
+  theme_minimal() +
+  labs(title = "PCA of Batch and Group Effect - Colored by Batch",
+       x = "Principal Component 1",
+       y = "Principal Component 2")
+
+# Plot PCA colored by Group
+p_group <- ggplot(pca_df, aes(x = PC1, y = PC2, color = Group)) +
+  geom_point(size = 3, alpha = 0.8) +
+  theme_minimal() +
+  labs(title = "PCA of Batch and Group Effect - Colored by Group",
        x = "Principal Component 1",
        y = "Principal Component 2")
 
