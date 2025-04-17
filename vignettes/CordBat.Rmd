@@ -26,9 +26,9 @@ library(ggplot2)
 
 # Generate Synthetic Data
 
-The synthetic dataset is engineered to mirror realistic mass spectrometry outputs by simulating 25 metabolites across six distinct batches (five experimental batches plus one reference batch). Unlike a uniform baseline, each metabolite is assigned a unique baseline intensity drawn from a normal distribution with a high mean (around 100,000) and moderate variability (e.g., SD ≈ 10,000) to better reflect inherent differences in metabolite abundance. For each sample, small random noise is added to these metabolite-specific values, mimicking the natural variability seen in mass spec measurements. A batch effect is then introduced by scaling a secondary normal distribution, with its own mean (approximately 25,000) and minimal variability, by a batch-specific coefficient and adding the resulting offset to the baseline values. This simulates systematic technical deviations between batches.
+The synthetic dataset is engineered to mirror realistic mass spectrometry outputs by simulating 25 metabolites across six distinct batches (five experimental batches plus one reference batch). Unlike a uniform baseline, each metabolite is assigned a unique baseline intensity drawn from a normal distribution with a high mean (around 100,000) and moderate variability (e.g., SD ≈ 10,000) to better reflect inherent differences in metabolite abundance. For each sample, small random noise is added to these metabolite-specific values, mimicking the natural variability seen in mass spec measurements. The batch effect is applied as a multiplicative factor to the baseline metabolite values. For each batch a normally distributed vector of batch-specific multipliers (centered around a predefined percentage change) introduces systematic variation and random noise to simulate technical variability across batches.
 
-In addition to the batch effects, a grouping variable assigns each sample into one of two groups. To model biologically meaningful differences, samples in one group receive an additional fixed offset for a subset of metabolites (e.g., the first 10 metabolites). This deliberate group effect enables the assessment of both technical batch-related biases and intrinsic sample variations, thereby providing a rigorous framework for evaluating batch correction methods and community detection algorithms.
+In addition to the batch effects, a grouping variable assigns each sample into one of two groups. To model biologically meaningful differences, samples in one group receive an a second multiplicative adjustment to the baseline metabolite values by modifying selected subsets of metabolites with small, normally distributed multipliers that simulate downregulated, slight upregulated, or strong upregulated metabolite groups. This deliberate group effect enables the assessment of both technical batch-related biases and intrinsic sample variations, thereby providing a rigorous framework for evaluating batch correction methods and community detection algorithms.
 
 ```{r}
 # Set seed for reproducibility
@@ -45,16 +45,23 @@ met_means <- rnorm(num_metabolites, mean = 100000, sd = 10000)
 
 # Define batch effects for each batch
 batch_effects <- list(
-  "Ref"    = 0.0,
-  "Batch1" = 1.0,
-  "Batch2" = -1.0,
-  "Batch3" = 0.5,
-  "Batch4" = -0.5,
-  "Batch5" = 1.5
+  "Ref"    = 0.00,   # No effect
+  "Batch1" = -0.25,  # 25% decrease
+  "Batch2" = -0.15,  # 15% decrease
+  "Batch3" =  0.12,  # 12% increase
+  "Batch4" = -0.08,  # 8% decrease
+  "Batch5" =  0.20   # 20% increase
 )
 
 # Define a systematic group effect.
-group_offset <- c(rep(500, 10), rep(0, num_metabolites - 10))
+# Randomly assign metabolites to each type of group effect
+downregulated_mets <- sample(1:num_metabolites, 2)
+remaining <- setdiff(1:num_metabolites, downregulated_mets)
+
+slightly_upregulated_mets <- sample(remaining, 4)
+remaining <- setdiff(remaining, slightly_upregulated_mets)
+
+strongly_upregulated_mets <- sample(remaining, 2)
 
 # Create an empty list to store sample records
 data_list <- list()
@@ -72,16 +79,26 @@ for (batch in batches) {
     # Generate baseline metabolite values with metabolite-specific means
     baseline <- rnorm(num_metabolites, mean = met_means, sd = 2)
     
-    # Simulate a realistic batch effect by scaling a random factor 
-    batch_effect_value <- batch_effects[[batch]] * rnorm(num_metabolites, mean = 25000, sd = 5000)
+    # Generate a multiplicative batch effect
+    batch_multiplier <- rnorm(
+      num_metabolites,
+      mean = 1 + batch_effects[[batch]],  # center around desired % change
+      sd = 0.04                           # introduce batch variability
+    )
     
-    # Compute the adjusted metabolite values as baseline plus batch effect
-    met_values <- baseline + batch_effect_value
-    
-    # Apply group effect if sample is in Group2 
+    # Default: all metabolite effects = 1 (i.e., no change)
+    group_multiplier <- rep(1, num_metabolites)
+
+    # Apply small multiplicative shifts for selected metabolites
     if (group == "Group2") {
-      met_values <- met_values + group_offset
+      group_multiplier[downregulated_mets] <- rnorm(length(downregulated_mets), mean = 0.95, sd = 0.003)
+      group_multiplier[slightly_upregulated_mets] <- rnorm(length(slightly_upregulated_mets), mean = 1.005, sd = 0.002)
+      group_multiplier[strongly_upregulated_mets] <- rnorm(length(strongly_upregulated_mets), mean = 1.015, sd = 0.002)
     }
+
+    # Apply multiplicative batch and group effects
+    met_values <- baseline * batch_multiplier * group_multiplier
+    
     
     # Round the metabolite values to 2 decimal places
     met_values <- round(met_values, 2)
