@@ -6,7 +6,7 @@ author:
   affiliation: Washington University in St. Louis, School of Medicine, St. Louis, MO, USA
 - name: Breanna Guppy
   email: breanna-guppy@uiowa.edu
-  affiliation: University of Iowa, Carver College of Medicine, Iowa City, IA, USA 
+  affiliation: University of Iowa, Molec Physiology & Biophy, Iowa City, IA, USA 
 date: 'Compiled: `r format(Sys.Date(), "%B %d, %Y")`'
 
 output:
@@ -28,9 +28,11 @@ library(ggplot2)
 
 # Generate Synthetic Data
 
-The synthetic dataset is engineered to mirror realistic mass spectrometry outputs by simulating 25 metabolites across six distinct batches (five experimental batches plus one reference batch). Unlike a uniform baseline, each metabolite is assigned a unique baseline intensity drawn from a normal distribution with a high mean (around 100,000) and moderate variability (e.g., SD ≈ 10,000) to better reflect inherent differences in metabolite abundance. For each sample, small random noise is added to these metabolite-specific values, mimicking the natural variability seen in mass spec measurements. The batch effect is applied as a multiplicative factor to the baseline metabolite values. For each batch a normally distributed vector of batch-specific multipliers (centered around a predefined percentage change) introduces systematic variation and random noise to simulate technical variability across batches.
+The synthetic dataset is engineered to mirror realistic mass spectrometry outputs by simulating 25 metabolites across six distinct batches (five experimental batches plus one reference batch). Unlike a uniform baseline, each metabolite is assigned a unique baseline intensity drawn from a normal distribution with a high mean (around 100,000) and moderate variability (e.g., SD ≈ 10,000) to better reflect inherent differences in metabolite abundance. For each sample, small random noise is added to these metabolite-specific values, mimicking the natural variability seen in mass spec measurements. 
 
-In addition to the batch effects, a grouping variable assigns each sample into one of two groups. To model biologically meaningful differences, samples in one group receive an a second multiplicative adjustment to the baseline metabolite values by modifying selected subsets of metabolites with small, normally distributed multipliers that simulate downregulated, slight upregulated, or strong upregulated metabolite groups. This deliberate group effect enables the assessment of both technical batch-related biases and intrinsic sample variations, thereby providing a rigorous framework for evaluating batch correction methods and community detection algorithms.
+A grouping variable assigns each sample into one of two groups. To model biologically meaningful differences, samples in one group receive an a second multiplicative adjustment to the baseline metabolite values by modifying selected subsets of metabolites with small, normally distributed multipliers that simulate downregulated, slight upregulated, or strong upregulated metabolite groups.The batch effect is applied as a multiplicative factor to the baseline metabolite values. 
+
+In addition to a group effect, a batch effect is also applied to the dataset. For each batch a normally distributed vector of batch-specific multipliers (centered around a predefined percentage change) introduces systematic variation and random noise to simulate technical variability across batches. These deliberate effect enables the assessment of both technical batch-related biases and intrinsic sample variations, thereby providing a rigorous framework for evaluating batch correction methods and community detection algorithms.
 
 ## Apply Group Effect to Baseline Metabolite Measurements
 
@@ -151,7 +153,7 @@ p_group <- ggplot(pca_df, aes(x = PC1, y = PC2, color = Group)) +
 print(p_batch)
 print(p_group)
 ```
-
+The PCA shows clear separation of groups before the batch effect is applied.
 ## Apply Batch Effect to Data
 
 ```{r}
@@ -224,5 +226,5 @@ p_group <- ggplot(pca_df, aes(x = PC1, y = PC2, color = Group)) +
 print(p_batch)
 print(p_group)
 ```
-
+After applying the batch effect, The PCA shows clusters based on batch instead of group.
 
