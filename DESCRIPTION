@@ -17,10 +17,11 @@ Imports:
     mixOmics,
     stats
 Suggests: 
-    testthat, 
-    knitr, 
+    testthat (>= 3.0.0),
+    knitr,
     rmarkdown
 VignetteBuilder: knitr
 RoxygenNote: 7.3.2
 Language: en-US
 BugReports: https://github.com/BorchLab/CordBat/issues
+Config/testthat/edition: 3
