@@ -2,6 +2,7 @@
 
 export(CordBat)
 importFrom(DMwR2,knnImputation)
+importFrom(glassoFast,glassoFast)
 importFrom(igraph,cluster_louvain)
 importFrom(igraph,graph_from_adjacency_matrix)
 importFrom(igraph,membership)
@@ -12,4 +13,3 @@ importFrom(stats,cor)
 importFrom(stats,cov)
 importFrom(stats,sd)
 importFrom(utils,capture.output)
-importFrom(glassoFast, glassoFast)
