@@ -17,7 +17,8 @@ Imports:
     igraph,
     lava,
     mixOmics,
-    stats
+    stats,
+    glassoFast
 Suggests: 
     testthat, 
     knitr, 
