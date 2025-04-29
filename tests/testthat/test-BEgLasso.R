@@ -2,7 +2,6 @@
 
 library(testthat)
 library(CordBat)
-source("R/BEgLasso.R")
 
 test_that("BEgLasso returns a list with the correct components and dimensions", {
   set.seed(42)
@@ -10,7 +9,7 @@ test_that("BEgLasso returns a list with the correct components and dimensions", 
   X0.glist <- list(matrix(rnorm(4), 2, 2), matrix(rnorm(4), 2, 2))
   X1.glist <- list(matrix(rnorm(4), 2, 2), matrix(rnorm(4), 2, 2))
   
-  res <- BEgLasso(
+  res <- CordBat:::BEgLasso(
     X0.glist, X1.glist,
     penal.rho   = 0.1,
     penal.ksi   = 0.1,
@@ -49,7 +48,7 @@ test_that("With identical X0 and X1 and zero penalties, no correction occurs", {
   X0.glist <- list(X, X)
   X1.glist <- list(X, X)
   
-  res <- BEgLasso(
+  res <- CordBat:::BEgLasso(
     X0.glist, X1.glist,
     penal.rho   = 0,
     penal.ksi   = 0,
