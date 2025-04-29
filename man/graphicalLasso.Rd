@@ -4,7 +4,7 @@
 \alias{graphicalLasso}
 \title{Graphical Lasso Algorithm}
 \usage{
-graphicalLasso(X, rho, print.detail)
+graphicalLasso(X, rho, print.detail = TRUE)
 }
 \arguments{
 \item{X}{A numeric matrix where rows represent samples and columns represent features.}
