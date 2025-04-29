@@ -154,6 +154,7 @@ print(p_batch)
 print(p_group)
 ```
 The PCA shows clear separation of groups before the batch effect is applied.
+
 ## Apply Batch Effect to Data
 
 ```{r}
@@ -228,3 +229,57 @@ print(p_group)
 ```
 After applying the batch effect, The PCA shows clusters based on batch instead of group.
 
+## CordBat Correction
+
+```{r}
+# Prepare data for CordBat
+X <- as.matrix(cordbat_example[, metabolite_cols, drop = FALSE])
+batch <- cordbat_example$Batch
+group <- cordbat_example$Group
+log_X <- log(X, base = 2)
+
+# Measure start time
+start.time <- Sys.time()
+cat("\n", "Start time: ", format(start.time, "%H:%M:%S"), "\n")
+#CordBat
+res <- CordBat(X = log_X, batch = batch, group = group, grouping = TRUE, ref.batch = "Ref", eps = 1e-05, print.detail = TRUE, skip.impute = TRUE)
+# Measure end time and time taken.
+end.time <- Sys.time()
+cat("\n", "End time: ", format(end.time, "%H:%M:%S"), "\n")
+cat("\n", "Time taken: ", difftime(end.time, start.time), "\n")
+
+```
+
+## Visualize Corrected Data with PCA
+
+```{r}
+cor_data <- res$X.cor
+cor_pca_res <- prcomp(cor_data, scale. = TRUE)
+
+# Combine PCA results with the metadata
+cor_pca_df <- data.frame(
+  Batch    = res$batch.new,
+  Group    = res$group.new,
+  PC1      = cor_pca_res$x[, 1],
+  PC2      = cor_pca_res$x[, 2]
+)
+
+# Plot PCA colored by Batch
+p_batch <- ggplot(cor_pca_df, aes(x = PC1, y = PC2, color = Batch)) +
+  geom_point(size = 3, alpha = 0.8) +
+  theme_minimal() +
+  labs(title = "PCA CordBat Corrected Data - Colored by Batch",
+       x = "Principal Component 1",
+       y = "Principal Component 2")
+
+# Plot PCA colored by Group
+p_group <- ggplot(cor_pca_df, aes(x = PC1, y = PC2, color = Group)) +
+  geom_point(size = 3, alpha = 0.8) +
+  theme_minimal() +
+  labs(title = "PCA CordBat Corrected Data - Colored by Group",
+       x = "Principal Component 1",
+       y = "Principal Component 2")
+
+print(p_batch)
+print(p_group)
+```
