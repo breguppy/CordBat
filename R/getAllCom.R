@@ -51,37 +51,38 @@ getAllCom <- function(X) {
     ComtyID[lastCOM[[i]]] <- i
   }
   
-  # Merge single-feature communities into nearest correlated community
-  cmty.sizeis1 <- which(lengths(lastCOM) == 1)
-  if (length(cmty.sizeis1) > 0) {
-    for (i in cmty.sizeis1) {
-      S1.metID <- lastCOM[[i]]
-      allCorwithS1 <- G[, S1.metID]
-      allCorwithS1[S1.metID] <- 0  # Ignore self-correlation
-      Maxcor.metID <- which.max(allCorwithS1)
+  if (length(lastCOM) > 1) { # Make sure more than one community exists
+    # Merge single-feature communities into nearest correlated community
+    cmty.sizeis1 <- which(lengths(lastCOM) == 1)
+    if (length(cmty.sizeis1) > 0) {
+      for (i in cmty.sizeis1) {
+        S1.metID <- lastCOM[[i]]
+        allCorwithS1 <- G[, S1.metID]
+        allCorwithS1[S1.metID] <- 0  # Ignore self-correlation
+        Maxcor.metID <- which.max(allCorwithS1)
       
-      mergeCmty <- ComtyID[Maxcor.metID]
-      lastCOM[[mergeCmty]] <- c(lastCOM[[mergeCmty]], S1.metID)
-      ComtyID[S1.metID] <- mergeCmty
+        mergeCmty <- ComtyID[Maxcor.metID]
+        lastCOM[[mergeCmty]] <- c(lastCOM[[mergeCmty]], S1.metID)
+        ComtyID[S1.metID] <- mergeCmty
+      }
+      lastCOM <- lastCOM[-cmty.sizeis1]
     }
-    lastCOM <- lastCOM[-cmty.sizeis1]
-  }
   
-  # Merge two-feature communities into nearest correlated community
-  cmty.sizeis2 <- which(lengths(lastCOM) == 2)
-  if (length(cmty.sizeis2) > 0) {
-    for (i in cmty.sizeis2) {
-      S2.metID <- lastCOM[[i]]
-      allCorwithS2 <- G[, S2.metID]
-      allCorwithS2[S2.metID, ] <- 0  # Ignore self-correlation
-      Maxcor.metID <- which(allCorwithS2 == max(allCorwithS2), arr.ind = TRUE)[1]
+    # Merge two-feature communities into nearest correlated community
+    cmty.sizeis2 <- which(lengths(lastCOM) == 2)
+    if (length(cmty.sizeis2) > 0) {
+      for (i in cmty.sizeis2) {
+        S2.metID <- lastCOM[[i]]
+        allCorwithS2 <- G[, S2.metID]
+        allCorwithS2[S2.metID, ] <- 0  # Ignore self-correlation
+        Maxcor.metID <- which(allCorwithS2 == max(allCorwithS2), arr.ind = TRUE)[1]
       
-      mergeCmty <- ComtyID[Maxcor.metID]
-      lastCOM[[mergeCmty]] <- c(lastCOM[[mergeCmty]], S2.metID)
+        mergeCmty <- ComtyID[Maxcor.metID]
+        lastCOM[[mergeCmty]] <- c(lastCOM[[mergeCmty]], S2.metID)
+      }
+      lastCOM <- lastCOM[-cmty.sizeis2]
     }
-    lastCOM <- lastCOM[-cmty.sizeis2]
   }
-  
   return(lastCOM)
 }
 
@@ -106,25 +107,26 @@ ComtyDet <- function(G, InputCOM, minCOMSize){
   InputCOM <- InputCOM[!ii]
   
   # Community detection
-  for (i in c(1: length(InputCOM))) {
-    InputG <- abs(G[InputCOM[[i]], InputCOM[[i]]])
-    InputG <- InputG - diag(diag(InputG))
-    Graph.InputG <- graph_from_adjacency_matrix(InputG, 
-                                                weighted = TRUE, 
-                                                mode = "undirected")
-    COMTY <- cluster_louvain(Graph.InputG)
-    cmty.id <- membership(COMTY)
-    cmty.size <- as.vector(sizes(COMTY))
-    NumComty <- length(cmty.size)
+  if (length(InputCOM) > 0) { # skip this loop if all communities are small.
+    for (i in seq_len(length(InputCOM))) {
+      InputG <- abs(G[InputCOM[[i]], InputCOM[[i]]])
+      InputG <- InputG - diag(diag(InputG))
+      Graph.InputG <- graph_from_adjacency_matrix(InputG, 
+                                                  weighted = TRUE, 
+                                                  mode = "undirected")
+      COMTY <- cluster_louvain(Graph.InputG)
+      cmty.id <- membership(COMTY)
+      cmty.size <- as.vector(sizes(COMTY))
+      NumComty <- length(cmty.size)
     
-    for (n in c(1: NumComty)) {
-      Node.Idx <- (cmty.id == n)
-      Node.InitID <- InputCOM[[i]][Node.Idx]
-      k <- k + 1
-      nextCOM[[k]] <- Node.InitID
+      for (n in c(1: NumComty)) {
+        Node.Idx <- (cmty.id == n)
+        Node.InitID <- InputCOM[[i]][Node.Idx]
+        k <- k + 1
+        nextCOM[[k]] <- Node.InitID
+      }
     }
   }
-  
   return(nextCOM)
 }
 
