@@ -106,25 +106,26 @@ ComtyDet <- function(G, InputCOM, minCOMSize){
   InputCOM <- InputCOM[!ii]
   
   # Community detection
-  for (i in c(1: length(InputCOM))) {
-    InputG <- abs(G[InputCOM[[i]], InputCOM[[i]]])
-    InputG <- InputG - diag(diag(InputG))
-    Graph.InputG <- graph_from_adjacency_matrix(InputG, 
-                                                weighted = TRUE, 
-                                                mode = "undirected")
-    COMTY <- cluster_louvain(Graph.InputG)
-    cmty.id <- membership(COMTY)
-    cmty.size <- as.vector(sizes(COMTY))
-    NumComty <- length(cmty.size)
+  if (length(InputCOM) > 0) { # skip this loop if all communities are small.
+    for (i in seq_len(length(InputCOM))) {
+      InputG <- abs(G[InputCOM[[i]], InputCOM[[i]]])
+      InputG <- InputG - diag(diag(InputG))
+      Graph.InputG <- graph_from_adjacency_matrix(InputG, 
+                                                  weighted = TRUE, 
+                                                  mode = "undirected")
+      COMTY <- cluster_louvain(Graph.InputG)
+      cmty.id <- membership(COMTY)
+      cmty.size <- as.vector(sizes(COMTY))
+      NumComty <- length(cmty.size)
     
-    for (n in c(1: NumComty)) {
-      Node.Idx <- (cmty.id == n)
-      Node.InitID <- InputCOM[[i]][Node.Idx]
-      k <- k + 1
-      nextCOM[[k]] <- Node.InitID
+      for (n in c(1: NumComty)) {
+        Node.Idx <- (cmty.id == n)
+        Node.InitID <- InputCOM[[i]][Node.Idx]
+        k <- k + 1
+        nextCOM[[k]] <- Node.InitID
+      }
     }
   }
-  
   return(nextCOM)
 }
 
