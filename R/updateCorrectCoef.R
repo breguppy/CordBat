@@ -27,10 +27,5 @@ update.CorrectCoef <- function(X0.glist,
     penal.gamma
   )
   
-  # optionally, forward any warning/log messages you want here
-  if (print.detail) {
-    message("... updated a and b via C++")
-  }
-  
   return(list(coef.a = res$coef.a, coef.b = res$coef.b))
 }
