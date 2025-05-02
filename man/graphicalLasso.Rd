@@ -22,7 +22,8 @@ A list containing:
 }
 \description{
 This function estimates a sparse inverse covariance matrix (precision matrix) 
-using the graphical lasso algorithm with an L1-penalized covariance estimation approach.
+using the graphical lasso algorithm with an L1-penalized covariance estimation approach
+by calling the fast C++ implementation from the glassoFast package.
 }
 \examples{
 set.seed(123)

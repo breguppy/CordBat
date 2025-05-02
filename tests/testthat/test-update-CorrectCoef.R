@@ -266,3 +266,22 @@ test_that("update.CorrectCoef handles Sigma_g[j] == NA safely", {
   expect_true(all(is.finite(result$coef.a)))
   expect_true(all(is.finite(result$coef.b)))
 })
+test_that("C++ core and R wrapper agree exactly", {
+  set.seed(42)
+  # same mock data as other tests
+  X0.glist <- list(matrix(rnorm(6),3,2), matrix(rnorm(6),3,2))
+  X1.glist <- list(matrix(rnorm(6),3,2), matrix(rnorm(6),3,2))
+  Theta.list <- list(diag(2), diag(2))
+  a.i <- c(1,1); b.i <- c(0,0)
+  ksi <- 0.1; gamma <- 0.1
+  
+  # call the R wrapper
+  outR <- CordBat:::update.CorrectCoef(X0.glist, X1.glist, Theta.list,
+                                       a.i, b.i, ksi, gamma, print.detail=FALSE)
+  # call the C++ function directly
+  outCpp <- updateCorrectCoefCpp(X0.glist, X1.glist, Theta.list,
+                                 a.i, b.i, ksi, gamma)
+  
+  expect_equal(outR$coef.a, outCpp$coef.a)
+  expect_equal(outR$coef.b, outCpp$coef.b)
+})

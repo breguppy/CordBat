@@ -17,7 +17,12 @@ Imports:
     lava,
     mixOmics,
     stats,
-    glassoFast
+    glassoFast,
+    Rcpp (>= 1.0.5),
+    RcppArmadillo
+LinkingTo:
+    Rcpp,
+    RcppArmadillo
 Suggests: 
     testthat (>= 3.0.0),
     knitr,
