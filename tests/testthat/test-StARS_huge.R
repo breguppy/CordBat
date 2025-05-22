@@ -1,5 +1,5 @@
 library(testthat)
-library(CordBat)    # adjust if your package name is different
+library(CordBat)  
 
 test_that("StARS_huge returns a named numeric vector of length 2", {
   skip_if_not_installed("huge")
