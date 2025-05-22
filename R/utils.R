@@ -165,67 +165,54 @@ findBestPara <- function(X0.glist, X1.glist, penal.rho, eps, print.detail) {
 
 
 # -------------------------------------------------------------
-# CV + BIC select rho
+# EBIC select rho via huge::huge + huge::huge.select
 # -------------------------------------------------------------
 #' @importFrom stats cov
 #' @importFrom lava tr
-selrho.useCVBIC <- function(X, print.detail = TRUE) {
-  N <- nrow(X)
-  fold <- selfoldforCV(N)
-  CVset.size <- N / fold
-  
-  rhos <- seq(from = 0.1, to = 0.9, by = 0.1)
-  CVerr1 <- matrix(0, fold, length(rhos))
-  CVerr2 <- rep(0, length(rhos))
-  
-  for (r in seq_along(rhos)) {
-    rho <- rhos[r]
-    if (fold != 1) {
-      for (i in 1:fold) {
-        start.index <- (i-1) * CVset.size + 1
-        end.index <- i * CVset.size
-        X.cv <- X[start.index:end.index, ]
-        X.tr <- X[-(start.index:end.index), ]
-        
-        c.mat <- graphicalLasso(X.tr, rho)
-        Theta <- c.mat$Theta
-        
-        X.cv.sca <- scale(X.cv, center = TRUE, scale = TRUE)
-        S.cv <- cov(X.cv.sca)
-        
-        k <- sum(Theta[upper.tri(Theta, diag = FALSE)] != 0)
-        CVerr1[i, r] <- k * log(CVset.size) - CVset.size * (log(det(Theta)) - tr(S.cv %*% Theta))
-      }
-    } else {
-      c.mat <- graphicalLasso(X, rho, print.detail)
-      Theta <- c.mat$Theta
-      # Added to handle matrix of 1 row
-      if (nrow(X) > 1) { 
-        X.sca <- scale(X, center = TRUE, scale = TRUE) 
-        S <- cov(X.sca) 
-      } else { 
-        S <- matrix(0, ncol(X), ncol(X)) 
-      }
-      
-      k <- sum(Theta[upper.tri(Theta, diag = FALSE)] != 0)
-      CVerr2[r] <- k * log(N) - 2 * (log(det(Theta)) - tr(S %*% Theta))
-    }
+selrho.useCVBIC <- function(X,
+                            print.detail = TRUE,
+                            nlambda      = 50,
+                            gamma        = 0) {
+  if (!requireNamespace("huge", quietly = TRUE)) {
+    stop("Please install the 'huge' package to use EBIC selection.")
   }
   
-  if (fold != 1) {
-    CVerr1 <- colMeans(CVerr1)
-    MinCVerr <- min(CVerr1)
-    rho.cv <- rhos[CVerr1 == MinCVerr]
+  # 1) Fit the full glasso path
+  out <- huge::huge(
+    X,
+    method  = "glasso",
+    nlambda = nlambda,
+    verbose = print.detail
+  )
+  
+  # 2) EBIC selection (note EBIC.gamma and positional first arg)
+  sel <- huge::huge.select(
+    out,
+    criterion   = "ebic",
+    ebic.gamma  = gamma,
+    verbose     = print.detail
+  )
+  
+  # 3) Extract the chosen lambda
+  rho.ebic <- sel$opt.lambda
+  
+  # 4) Grab the EBIC‐vector from the correct slot (‐> sel$ebic)
+  ebic.vec <- if (!is.null(sel$ebic)) {
+    sel$ebic
   } else {
-    MinCVerr <- min(CVerr2)
-    rho.cv <- rhos[CVerr2 == MinCVerr]
+    stop("Unexpected huge.select output: no sel$ebic component found")
   }
+  ebic.val <- ebic.vec[ sel$opt.index ]
   
+  # 5) Message & return
   if (print.detail) {
-    message('CVBIC: select rho =', rho.cv, '\n')
+    message(sprintf(
+      "EBIC: select rho = %s  (EBIC = %.2f)",
+      rho.ebic, ebic.val
+    ))
   }
   
-  return(c(rho.cv, MinCVerr))
+  return(c(rho.ebic, ebic.val))
 }
 
 

@@ -290,7 +290,7 @@ findBestPara <- function(X0.glist, X1.glist, penal.rho, eps, print.detail) {
 # -------------------------------------------------------------
 #' @importFrom stats cov
 #' @importFrom lava tr
-selrho.useCVBIC <- function(X, print.detail = TRUE) {
+old_selrho.useCVBIC <- function(X, print.detail = TRUE) {
   N <- nrow(X)
   fold <- selfoldforCV(N)
   CVset.size <- N / fold
