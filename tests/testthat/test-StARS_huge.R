@@ -9,11 +9,12 @@ test_that("StARS_huge returns a named numeric vector of length 2", {
   X <- matrix(rnorm(200), nrow = 20, ncol = 10)
   res <- CordBat:::StARS_huge(
     X       = X,
-    b       = ceiling(0.7 * nrow(X)),
+    b       = round(0.7 * nrow(X)),
     M       = 5,
-    nlambda = 10,
-    beta    = 0.1,
-    verbose = FALSE
+    lambda.grid = seq(0.9,0.1,-0.1),
+    seed = NULL,
+    beta    = 0.05,
+    print.detail = FALSE
   )
   
   expect_type(res, "double")
@@ -28,11 +29,12 @@ test_that("Returned values are in plausible ranges", {
   X <- matrix(rnorm(300), nrow = 30, ncol = 10)
   res <- CordBat:::StARS_huge(
     X       = X,
-    b       = ceiling(0.7 * nrow(X)),
+    b       = round(0.7 * nrow(X)),
     M       = 5,
-    nlambda = 10,
-    beta    = 0.2,
-    verbose = FALSE
+    lambda.grid = seq(0.9,0.1,-0.1),
+    seed = NULL,
+    beta    = 0.05,
+    print.detail = FALSE
   )
   
   # selected rho should be positive
@@ -41,7 +43,7 @@ test_that("Returned values are in plausible ranges", {
   expect_true(res["D_var"] >= 0 && res["D_var"] <= 1)
 })
 
-test_that("Verbose = TRUE emits a selection message", {
+test_that("print.detail = TRUE emits a selection message", {
   skip_if_not_installed("huge")
   set.seed(789)
   
@@ -49,11 +51,12 @@ test_that("Verbose = TRUE emits a selection message", {
   expect_message(
     CordBat:::StARS_huge(
       X       = X,
-      b       = ceiling(0.7 * nrow(X)),
-      M       = 3,
-      nlambda = 5,
-      beta    = 0.3,
-      verbose = TRUE
+      b       = round(0.7 * nrow(X)),
+      M       = 5,
+      lambda.grid = seq(0.9,0.1,-0.1),
+      seed = NULL,
+      beta    = 0.05,
+      print.detail = TRUE
     ),
     "StARS selected rho"
   )

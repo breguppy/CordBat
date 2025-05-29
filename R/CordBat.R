@@ -144,6 +144,7 @@ CordBat <- function(X,
     X.cor.withQC[ref.idx.init, ] <- X.init[ref.idx.init, ]
   }
   
+  
   # After cleaning, define JGL grid for multi-group penalty selection
   lambda1.seq <- seq(0.1, 1.0, length.out = 5)
   lambda2.seq <- seq(0.1, 1.0, length.out = 5)
@@ -153,7 +154,8 @@ CordBat <- function(X,
   ref_batch_idx <- which(batch == ref.batch_char)
   Xb0.mat <- X.delout[ref_batch_idx, , drop = FALSE]
   COM <- getAllCom(Xb0.mat)
-  if (print.detail) message("Community detection: ", length(COM), " communities")
+  if (print.detail) message("Community detection: ", length(COM), " communities", "\n",
+                            "Size: ", lengths(COM), "\n")
   
   # === Batch effect correction for each community ===
   for (i in seq_along(COM)) {
@@ -181,15 +183,26 @@ CordBat <- function(X,
       detailOutput <- capture.output(
         rhos <- sapply(Xb0.COMi.glist, function(mat) {
           if (nrow(mat) > 5) {
-            StARS_huge(
+            res <- StARS_huge(
               X       = mat,
               b       = round(0.7 * nrow(mat)),
               M       = 100,
-              verbose = TRUE
+              lambda.grid = seq(0.9, 0.1, by = -0.1),
+              print.detail = print.detail
             )[1]
+            if (res == 0.1) {
+              res <- StARS_huge(
+                X       = mat,
+                b       = round(0.7 * nrow(mat)),
+                M       = 100,
+                lambda.grid = seq(0.1, 0.01, by = -0.01),
+                print.detail = print.detail
+              )[1]
+            }
           } else {
-            selrho.useCVBIC(mat, FALSE)[1]  # fallback for very small batches
+            res <- select_rho_cv_bic(mat, seq(0.1, 0.9, by = 0.1), print.detail = print.detail)[1]  # fallback for very small batches
           }
+          return(res)
         }),
         type = "message"
       )
@@ -197,15 +210,26 @@ CordBat <- function(X,
     } else {
       rhos <- sapply(Xb0.COMi.glist, function(mat) {
         if (nrow(mat) > 5) {
-          StARS_huge(
+          res <- StARS_huge(
             X       = mat,
             b       = round(0.7 * nrow(mat)),
             M       = 100,
-            verbose = FALSE
+            lambda.grid = seq(0.9, 0.1, by = -0.1),
+            print.detail = print.detail
           )[1]
+          if (res == 0.1) {
+            res <- StARS_huge(
+              X       = mat,
+              b       = round(0.7 * nrow(mat)),
+              M       = 100,
+              lambda.grid = seq(0.1, 0.01, by = -0.01),
+              print.detail = print.detail
+            )[1]
+          }
         } else {
-          selrho.useCVBIC(mat, print.detail)[1]
+          res <- select_rho_cv_bic(mat, seq(0.1, 0.9, by = 0.1), print.detail = print.detail)[1]  # fallback for very small batches
         }
+        return(res)
       })
     }
     

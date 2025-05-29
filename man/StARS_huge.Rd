@@ -4,23 +4,25 @@
 \alias{StARS_huge}
 \title{StARS via huge::huge + huge::huge.select}
 \usage{
-StARS_huge(X, b, M, nlambda = 50, beta = 0.05, verbose = TRUE)
+StARS_huge(X, b, M, lambda.grid, seed = NULL, beta = 0.05, print.detail = TRUE)
 }
 \arguments{
-\item{X}{Numeric data matrix (n samples × p features)}
+\item{X}{numeric matrix (samples × features)}
 
-\item{b}{Subsample size for each stability run}
+\item{b}{subsample size for stability (integer)}
 
-\item{M}{Number of subsampling iterations (rep.num)}
+\item{M}{number of subsampling replications (integer)}
 
-\item{nlambda}{How many λ’s to fit on the path (default 50)}
+\item{lambda.grid}{vector of rhos to try (e.g. seq(0.9,0.1,-0.1) or seq(0.1,0.01,-0.01))}
 
-\item{beta}{Stability threshold (stars.thresh), default 0.05}
+\item{seed}{optional RNG seed for reproducibility}
 
-\item{verbose}{Print progress if TRUE}
+\item{beta}{instability threshold (default 0.05)}
+
+\item{print.detail}{logical; if TRUE, prints progress}
 }
 \value{
-Named vector c(Sel.rho, D_var)
+numeric vector c(Sel.rho, D_var)
 }
 \description{
 StARS via huge::huge + huge::huge.select
