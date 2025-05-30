@@ -183,6 +183,7 @@ CordBat <- function(X,
       detailOutput <- capture.output(
         rhos <- sapply(Xb0.COMi.glist, function(mat) {
           if (nrow(mat) > 5) {
+            # coarse grid
             res <- StARS_huge(
               X       = mat,
               b       = round(0.7 * nrow(mat)),
@@ -191,6 +192,7 @@ CordBat <- function(X,
               print.detail = print.detail
             )[1]
             if (res == 0.1) {
+              # fine grid
               res <- StARS_huge(
                 X       = mat,
                 b       = round(0.7 * nrow(mat)),
@@ -199,8 +201,14 @@ CordBat <- function(X,
                 print.detail = print.detail
               )[1]
             }
+            # fallback for very small batches
           } else {
-            res <- select_rho_cv_bic(mat, seq(0.1, 0.9, by = 0.1), print.detail = print.detail)[1]  # fallback for very small batches
+            # coarse grid
+            res <- select_rho_cv_bic(mat, seq(0.1, 0.9, by = 0.1), print.detail = print.detail)[1]
+            if (res == 0.1) {
+              # fine grid
+              res <- select_rho_cv_bic(mat, seq(0.01, 0.1, by = 0.01), print.detail = print.detail)[1]
+            }
           }
           return(res)
         }),
@@ -210,6 +218,7 @@ CordBat <- function(X,
     } else {
       rhos <- sapply(Xb0.COMi.glist, function(mat) {
         if (nrow(mat) > 5) {
+          # coarse grid
           res <- StARS_huge(
             X       = mat,
             b       = round(0.7 * nrow(mat)),
@@ -218,6 +227,7 @@ CordBat <- function(X,
             print.detail = print.detail
           )[1]
           if (res == 0.1) {
+            # fine grid
             res <- StARS_huge(
               X       = mat,
               b       = round(0.7 * nrow(mat)),
@@ -226,8 +236,14 @@ CordBat <- function(X,
               print.detail = print.detail
             )[1]
           }
+          # fallback for very small batches
         } else {
-          res <- select_rho_cv_bic(mat, seq(0.1, 0.9, by = 0.1), print.detail = print.detail)[1]  # fallback for very small batches
+          # coarse grid
+          res <- select_rho_cv_bic(mat, seq(0.1, 0.9, by = 0.1), print.detail = print.detail)[1]
+          if (res == 0.1) {
+            # fine grid
+            res <- select_rho_cv_bic(mat, seq(0.01, 0.1, by = 0.01), print.detail = print.detail)[1]
+          }
         }
         return(res)
       })
