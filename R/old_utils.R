@@ -1,7 +1,7 @@
 # -------------------------------------------------------------
 # select a proper fold number for CV
 # -------------------------------------------------------------
-selfoldforCV <- function(N){
+old_selfoldforCV <- function(N){
   foldstosel <- 2:9
   Num.quo <- N %/% foldstosel
   Num.rem <- N %% foldstosel
@@ -32,7 +32,7 @@ selfoldforCV <- function(N){
 # ------------------
 # soft threshold
 # ------------------
-soft <- function(x, lambda){
+old_soft <- function(x, lambda){
   s <- sign(x) * max(abs(x) - lambda, 0)
   return(s)
 }
@@ -41,7 +41,7 @@ soft <- function(x, lambda){
 # -------------------
 # coordinate descent for graphical lasso sub-problem
 # -------------------
-CDfgL <- function(V, beta_i, u, rho, maxIter = 200, print.detail){
+old_CDfgL <- function(V, beta_i, u, rho, maxIter = 200, print.detail){
   p_1 <- ncol(V)
   
   # initialize
@@ -220,7 +220,7 @@ old_update.CorrectCoef <- function(X0.glist, X1.glist, Theta.list,
 # -------------------------------------------------------------
 # find best parameters for penalty selection via CV+BIC (grid search)
 # -------------------------------------------------------------
-findBestPara <- function(X0.glist, X1.glist, penal.rho, eps, print.detail) {
+old_findBestPara <- function(X0.glist, X1.glist, penal.rho, eps, print.detail) {
   G <- length(X0.glist)
   p <- ncol(X0.glist[[1]])
   
@@ -355,7 +355,7 @@ old_selrho.useCVBIC <- function(X, print.detail = TRUE) {
 # -------------------------------------------------------------
 #' @importFrom stats sd
 #' @importFrom mixOmics pca
-DelOutlier <- function(X) {
+old_DelOutlier <- function(X) {
   pca.dat <- pca(X, ncomp = 3, center = TRUE, scale = TRUE)
   pca.dat.varX <- pca.dat$variates$X
   delsampIdx <- c()
@@ -386,7 +386,7 @@ DelOutlier <- function(X) {
 # -------------------------------------------------------------
 #' @importFrom stats sd
 #' @importFrom DMwR2 knnImputation
-ImputeOutlier <- function(X) {
+old_ImputeOutlier <- function(X) {
   p <- ncol(X)
   X.out <- X
   for (i in 1:p) {

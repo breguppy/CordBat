@@ -23,6 +23,7 @@
 #' @importFrom stats cov
 #' @importFrom utils capture.output
 #' @importFrom glassoFast glassoFast
+#' @export
 graphicalLasso <- function(X, rho, print.detail = TRUE) {
   # compute the (regularized) sample covariance
   if (nrow(X) > 1) {

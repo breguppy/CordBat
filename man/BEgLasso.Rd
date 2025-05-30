@@ -2,7 +2,7 @@
 % Please edit documentation in R/BEgLasso.R
 \name{BEgLasso}
 \alias{BEgLasso}
-\title{Batch Effect Correction using Group Graphical Lasso + glassoFast}
+\title{Batch Effect Correction using Group Graphical Lasso (updated)}
 \usage{
 BEgLasso(
   X0.glist,
@@ -10,34 +10,38 @@ BEgLasso(
   penal.rho,
   penal.ksi,
   penal.gamma,
-  eps = 1e-04,
+  eps,
   print.detail = TRUE
 )
 }
 \arguments{
-\item{X0.glist}{A list of reference-batch matrices (each is samples × features).}
+\item{X0.glist}{A list of matrices where each matrix corresponds to a batch
+in group 0 (reference batch).}
 
-\item{X1.glist}{A list of matrices to correct (each is samples × features).}
+\item{X1.glist}{A list of matrices where each matrix corresponds to a batch
+in group 1 (batch to be corrected).}
 
-\item{penal.rho}{Regularization parameter for glasso.}
+\item{penal.rho}{Regularization parameter for the graphical lasso.}
 
 \item{penal.ksi}{Regularization parameter for coefficient update.}
 
 \item{penal.gamma}{Additional penalty parameter for coefficient update.}
 
-\item{eps}{Convergence threshold (default 1e-4).}
+\item{eps}{Convergence threshold for stopping criteria.}
 
-\item{print.detail}{Logical flag to print iteration details.}
+\item{print.detail}{Logical flag to print processing details (default: TRUE).}
 }
 \value{
-A list with elements:
-  \item{Theta}{List of precision matrices for each group.}
-  \item{X1.cor}{List of corrected matrices for group 1.}
-  \item{coef.a}{Scaling coefficients.}
-  \item{coef.b}{Offset coefficients.}
+A list containing:
+  \itemize{
+    \item \code{Theta} - List of precision matrices for each group.
+    \item \code{X1.cor} - List of corrected matrices for group 1.
+    \item \code{coef.a} - Corrected scaling coefficients.
+    \item \code{coef.b} - Corrected offset coefficients.
+  }
 }
 \description{
-This function applies a batch effect correction method using the 
-Group Graphical Lasso (GGM) approach, but replaces the inner coordinate-
-descent with a fast Fortran-accelerated glasso implementation (glassoFast).
+This function applies a batch effect correction method using the
+Group Graphical Lasso (GGM) approach, leveraging the fast C++ backend
+via the `graphicalLasso()` helper for covariance and precision updates.
 }

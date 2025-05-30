@@ -21,7 +21,8 @@ Imports:
     Rcpp (>= 1.0.5),
     RcppArmadillo,
     huge,
-    CVglasso
+    CVglasso,
+    parallel
 LinkingTo:
     Rcpp,
     RcppArmadillo

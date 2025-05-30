@@ -144,12 +144,6 @@ CordBat <- function(X,
     X.cor.withQC[ref.idx.init, ] <- X.init[ref.idx.init, ]
   }
   
-  
-  # After cleaning, define JGL grid for multi-group penalty selection
-  lambda1.seq <- seq(0.1, 1.0, length.out = 5)
-  lambda2.seq <- seq(0.1, 1.0, length.out = 5)
-  r           <- 0.5
-  
   # === Community detection on reference batch data ===
   ref_batch_idx <- which(batch == ref.batch_char)
   Xb0.mat <- X.delout[ref_batch_idx, , drop = FALSE]
@@ -274,41 +268,11 @@ CordBat <- function(X,
       Xb1.Batk.COMi.glist <- Xb1.Batk.COMi.glist[valid_groups_nonref]
       if (length(Xb1.Batk.COMi.glist) == 0) next  # skip if no valid groups
       
-      # Select penalties
-      if (length(Xb1.Batk.COMi.glist) > 1) {
-        # Multi-group: JGL+EBIC
-        jgl.res <- findBestPara_JGL(
-          X0.glist    = Xb0.COMi.glist,
-          X1.glist    = Xb1.Batk.COMi.glist,
-          lambda1.seq = lambda1.seq,
-          lambda2.seq = lambda2.seq,
-          r           = r
-        )
-        penal.ksi   <- jgl.res$best["lambda2"]
-        penal.gamma <- 0
-      } else {
-        # Single-group: CV+BIC fallback
-        penterm <- findBestPara(
-          Xb0.COMi.glist,
-          Xb1.Batk.COMi.glist,
-          penal.rho   = rho,
-          eps,
-          print.detail
-        )
-        penal.ksi   <- penterm$penal.ksi
-        penal.gamma <- penterm$penal.gamma
-      }
-      
-      # Perform correction
-      para.out <- BEgLasso(
-        Xb0.COMi.glist,
-        Xb1.Batk.COMi.glist,
-        penal.rho   = rho,
-        penal.ksi   = penal.ksi,
-        penal.gamma = penal.gamma,
-        eps,
-        print.detail
-      )
+      # Use the valid reference and non-reference groups in downstream functions
+      penterm <- findBestPara(Xb0.COMi.glist, Xb1.Batk.COMi.glist, rho, eps, print.detail)
+      para.out <- BEgLasso(Xb0.COMi.glist, Xb1.Batk.COMi.glist, rho, 
+                           penterm$penal.ksi, penterm$penal.gamma, eps, 
+                           print.detail)
       
       # Update corrected data (X.cor.1) for this non-reference batch
       # We update for each valid group; note that the order in Xb1.Batk.COMi.glist now corresponds 
@@ -320,6 +284,16 @@ CordBat <- function(X,
         X.cor.1[idx, metID] <- para.out$X1.cor[[j]]
       }
       
+      # Populate Xcor.para with learned Theta and a/b for this batch & community
+      for (j in seq_along(valid_grp_indices)) {
+        g_idx <- valid_grp_indices[j]
+        # Assign the submatrix of precision
+        Xcor.para[[k]]$Theta[[g_idx]][metID, metID] <- para.out$Theta[[j]]
+      }
+      # Assign the new scaling and offset coefficients
+      Xcor.para[[k]]$coef.a[metID] <- para.out$coef.a[metID]
+      Xcor.para[[k]]$coef.b[metID] <- para.out$coef.b[metID]
+      
       # Update fully corrected data (X.cor) using outlier-free data (X.nodel)
       idx_nodel <- which(batch == batch_label)
       if (length(idx_nodel) > 0) {
@@ -329,7 +303,19 @@ CordBat <- function(X,
         coef.B <- matrix(rep(para.out$coef.b, each = N1), nrow = N1)
         X.cor[idx_nodel, metID] <- Xb1.nodel[, metID] %*% coef.A + coef.B
       }
+      
+      qc_idx <- which(batch.init == batch_label & group.init == "QC")
+      if (length(qc_idx)) {
+        # Use the same a/b you learned for this batch & community
+        Nqc    <- length(qc_idx)
+        A_mat  <- diag(para.out$coef.a[metID])
+        B_mat  <- matrix(rep(para.out$coef.b[metID], each = Nqc), nrow = Nqc)
+        X_cor_qc <- X_QC[QC_batch == batch_label, metID, drop=FALSE] %*% A_mat + B_mat
+        X.cor.withQC[qc_idx, metID] <- X_cor_qc
+      }
     }
+    
+    
     
     if (print.detail) message("Finished correction of community ", i)
   }

@@ -30,7 +30,7 @@ selfoldforCV <- function(N){
 
 
 # ------------------
-# soft threshold
+# soft threshold                                                                      Not used anymore
 # ------------------
 soft <- function(x, lambda){
   s <- sign(x) * max(abs(x) - lambda, 0)
@@ -39,7 +39,7 @@ soft <- function(x, lambda){
 
 
 # -------------------
-# coordinate descent for graphical lasso sub-problem
+# coordinate descent for graphical lasso sub-problem                                  Not used anymore
 # -------------------
 CDfgL <- function(V, beta_i, u, rho, maxIter = 200, print.detail){
   p_1 <- ncol(V)
@@ -97,9 +97,9 @@ CDfgL <- function(V, beta_i, u, rho, maxIter = 200, print.detail){
 }
 
 # -------------------------------------------------------------
-# find best parameters for penalty selection via CV+BIC (grid search)
+# find best parameters ksi and gamma using EBIC
 # -------------------------------------------------------------
-findBestPara <- function(X0.glist, X1.glist, penal.rho, eps, print.detail) {
+old_findBestPara <- function(X0.glist, X1.glist, penal.rho, eps, print.detail) {
   G <- length(X0.glist)
   p <- ncol(X0.glist[[1]])
   
@@ -165,7 +165,7 @@ findBestPara <- function(X0.glist, X1.glist, penal.rho, eps, print.detail) {
 
 
 # -------------------------------------------------------------
-# EBIC select rho via huge::huge + huge::huge.select
+# EBIC select rho via huge::huge + huge::huge.select                              Not used anymore
 # -------------------------------------------------------------
 #' @importFrom stats cov
 #' @importFrom lava tr
