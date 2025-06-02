@@ -19,7 +19,10 @@ Imports:
     stats,
     glassoFast,
     Rcpp (>= 1.0.5),
-    RcppArmadillo
+    RcppArmadillo,
+    huge,
+    CVglasso,
+    parallel
 LinkingTo:
     Rcpp,
     RcppArmadillo

@@ -46,6 +46,7 @@ CordBat <- function(X,
     containQC <- FALSE
     group <- rep(1, nrow(X))
   } else {
+    # If group is provided, remove QC samples for processing
     containQC <- any(group == "QC")
     if (containQC) {
       X.init <- X
@@ -87,9 +88,10 @@ CordBat <- function(X,
       cur.batch <- batch.levels[i]
       bati.idx <- which(batch == cur.batch)
       if (length(bati.idx) == 1) next  # Skip batches with only 1 sample
-      X.bati <- DelOutlier(X[bati.idx, , drop = FALSE])
+      X.bati <- DelOutlier(X[bati.idx, , drop = FALSE]) # Determine sample outliers with PCA
       delsamp.bati <- X.bati$delsampIdx
       
+      # impute outlier measurements in non-sample outliers.
       if (length(delsamp.bati) > 0) {
         dat.bati <- ImputeOutlier(X.bati$X.out)  # Perform imputation only if deletion happened
         bati.delinitIdx <- bati.idx[delsamp.bati]
@@ -100,7 +102,8 @@ CordBat <- function(X,
       }
     }
     if (length(delsampIdx) > 0) {
-      X.nodel <- X.delout
+      X.nodel <- X.delout                    # imputed data with sample outliers remaining untouched
+      X.delout <- X.delout[-delsampIdx, ]    # imputed data with sample outliers removed
     } else {
       X.nodel <- X
     }
@@ -129,12 +132,12 @@ CordBat <- function(X,
   # Initialize corrected matrices 
   #n_del <- nrow(X.delout)
   n_del <- nrow(X)
-  X.cor   <- matrix(0, n_del, p)
-  X.cor.1 <- matrix(0, n_del, p)
+  X.cor   <- matrix(0, nrow(X), p)
+  X.cor.1 <- matrix(0, nrow(X.delout), p)
   
   ref.batch_char <- as.character(ref.batch)
   ref.idx <- which(batch == ref.batch_char)
-  X.cor[ref.idx, ]   <- X.delout[ref.idx, ]
+  X.cor[ref.idx, ]   <- X.nodel[ref.idx, ]
   X.cor.1[ref.idx, ] <- X.delout[ref.idx, ]
   
   X.cor.withQC <- NULL
@@ -144,16 +147,12 @@ CordBat <- function(X,
     X.cor.withQC[ref.idx.init, ] <- X.init[ref.idx.init, ]
   }
   
-  # After cleaning, define JGL grid for multi-group penalty selection
-  lambda1.seq <- seq(0.1, 1.0, length.out = 5)
-  lambda2.seq <- seq(0.1, 1.0, length.out = 5)
-  r           <- 0.5
-  
   # === Community detection on reference batch data ===
   ref_batch_idx <- which(batch == ref.batch_char)
   Xb0.mat <- X.delout[ref_batch_idx, , drop = FALSE]
   COM <- getAllCom(Xb0.mat)
-  if (print.detail) message("Community detection: ", length(COM), " communities")
+  if (print.detail) message("Community detection: ", length(COM), " communities", "\n",
+                            "Size: ", lengths(COM), "\n")
   
   # === Batch effect correction for each community ===
   for (i in seq_along(COM)) {
@@ -181,15 +180,34 @@ CordBat <- function(X,
       detailOutput <- capture.output(
         rhos <- sapply(Xb0.COMi.glist, function(mat) {
           if (nrow(mat) > 5) {
-            StARS_huge(
+            # coarse grid
+            res <- StARS_huge(
               X       = mat,
               b       = round(0.7 * nrow(mat)),
               M       = 100,
-              verbose = TRUE
+              lambda.grid = seq(0.9, 0.1, by = -0.1),
+              print.detail = print.detail
             )[1]
+            if (res == 0.1) {
+              # fine grid
+              res <- StARS_huge(
+                X       = mat,
+                b       = round(0.7 * nrow(mat)),
+                M       = 100,
+                lambda.grid = seq(0.1, 0.01, by = -0.01),
+                print.detail = print.detail
+              )[1]
+            }
+            # fallback for very small batches
           } else {
-            selrho.useCVBIC(mat, FALSE)[1]  # fallback for very small batches
+            # coarse grid
+            res <- select_rho_cv_bic(mat, seq(0.1, 0.9, by = 0.1), print.detail = print.detail)[1]
+            if (res == 0.1) {
+              # fine grid
+              res <- select_rho_cv_bic(mat, seq(0.01, 0.1, by = 0.01), print.detail = print.detail)[1]
+            }
           }
+          return(res)
         }),
         type = "message"
       )
@@ -197,15 +215,34 @@ CordBat <- function(X,
     } else {
       rhos <- sapply(Xb0.COMi.glist, function(mat) {
         if (nrow(mat) > 5) {
-          StARS_huge(
+          # coarse grid
+          res <- StARS_huge(
             X       = mat,
             b       = round(0.7 * nrow(mat)),
             M       = 100,
-            verbose = FALSE
+            lambda.grid = seq(0.9, 0.1, by = -0.1),
+            print.detail = print.detail
           )[1]
+          if (res == 0.1) {
+            # fine grid
+            res <- StARS_huge(
+              X       = mat,
+              b       = round(0.7 * nrow(mat)),
+              M       = 100,
+              lambda.grid = seq(0.1, 0.01, by = -0.01),
+              print.detail = print.detail
+            )[1]
+          }
+          # fallback for very small batches
         } else {
-          selrho.useCVBIC(mat, print.detail)[1]
+          # coarse grid
+          res <- select_rho_cv_bic(mat, seq(0.1, 0.9, by = 0.1), print.detail = print.detail)[1]
+          if (res == 0.1) {
+            # fine grid
+            res <- select_rho_cv_bic(mat, seq(0.01, 0.1, by = 0.01), print.detail = print.detail)[1]
+          }
         }
+        return(res)
       })
     }
     
@@ -234,41 +271,19 @@ CordBat <- function(X,
       Xb1.Batk.COMi.glist <- Xb1.Batk.COMi.glist[valid_groups_nonref]
       if (length(Xb1.Batk.COMi.glist) == 0) next  # skip if no valid groups
       
-      # Select penalties
-      if (length(Xb1.Batk.COMi.glist) > 1) {
-        # Multi-group: JGL+EBIC
-        jgl.res <- findBestPara_JGL(
-          X0.glist    = Xb0.COMi.glist,
-          X1.glist    = Xb1.Batk.COMi.glist,
-          lambda1.seq = lambda1.seq,
-          lambda2.seq = lambda2.seq,
-          r           = r
-        )
-        penal.ksi   <- jgl.res$best["lambda2"]
-        penal.gamma <- 0
-      } else {
-        # Single-group: CV+BIC fallback
-        penterm <- findBestPara(
-          Xb0.COMi.glist,
-          Xb1.Batk.COMi.glist,
-          penal.rho   = rho,
-          eps,
-          print.detail
-        )
-        penal.ksi   <- penterm$penal.ksi
-        penal.gamma <- penterm$penal.gamma
+      # Use the valid reference and non-reference groups in downstream functions
+      penterm <- findBestPara(Xb0.COMi.glist, Xb1.Batk.COMi.glist, rho, eps, print.detail)
+      
+      if (print.detail) {
+        cat('Batch ', k, ' correction begin......')
       }
       
-      # Perform correction
-      para.out <- BEgLasso(
-        Xb0.COMi.glist,
-        Xb1.Batk.COMi.glist,
-        penal.rho   = rho,
-        penal.ksi   = penal.ksi,
-        penal.gamma = penal.gamma,
-        eps,
-        print.detail
-      )
+      para.out <- BEgLasso(Xb0.COMi.glist, Xb1.Batk.COMi.glist, rho, 
+                           penterm$penal.ksi, penterm$penal.gamma, eps, 
+                           print.detail)
+      if (print.detail) {
+        cat('finshed', '\n')
+      }
       
       # Update corrected data (X.cor.1) for this non-reference batch
       # We update for each valid group; note that the order in Xb1.Batk.COMi.glist now corresponds 
@@ -280,6 +295,16 @@ CordBat <- function(X,
         X.cor.1[idx, metID] <- para.out$X1.cor[[j]]
       }
       
+      # Populate Xcor.para with learned Theta and a/b for this batch & community
+      for (j in seq_along(valid_grp_indices)) {
+        g_idx <- valid_grp_indices[j]
+        # Assign the submatrix of precision
+        Xcor.para[[k]]$Theta[[g_idx]][metID, metID] <- para.out$Theta[[j]]
+      }
+      # Assign the new scaling and offset coefficients
+      Xcor.para[[k]]$coef.a[metID] <- para.out$coef.a[metID]
+      Xcor.para[[k]]$coef.b[metID] <- para.out$coef.b[metID]
+      
       # Update fully corrected data (X.cor) using outlier-free data (X.nodel)
       idx_nodel <- which(batch == batch_label)
       if (length(idx_nodel) > 0) {
@@ -289,7 +314,19 @@ CordBat <- function(X,
         coef.B <- matrix(rep(para.out$coef.b, each = N1), nrow = N1)
         X.cor[idx_nodel, metID] <- Xb1.nodel[, metID] %*% coef.A + coef.B
       }
+      
+      qc_idx <- which(batch.init == batch_label & group.init == "QC")
+      if (length(qc_idx)) {
+        # Use the same a/b you learned for this batch & community
+        Nqc    <- length(qc_idx)
+        A_mat  <- diag(para.out$coef.a[metID])
+        B_mat  <- matrix(rep(para.out$coef.b[metID], each = Nqc), nrow = Nqc)
+        X_cor_qc <- X_QC[QC_batch == batch_label, metID, drop=FALSE] %*% A_mat + B_mat
+        X.cor.withQC[qc_idx, metID] <- X_cor_qc
+      }
     }
+    
+    
     
     if (print.detail) message("Finished correction of community ", i)
   }

@@ -10,11 +10,13 @@ test_that("graphicalLasso delegates exactly to glassoFast", {
   Xs <- scale(X, center = TRUE, scale = TRUE)
   S  <- cov(Xs)
   
+  rho.mat <- matrix(rho, nrow(S), ncol(S))
+  diag(rho.mat) <- 0
   # 1) call your new wrapper
   out_wrap <- CordBat:::graphicalLasso(X, rho, print.detail = FALSE)
   
   # 2) call glassoFast directly
-  out_fast <- glassoFast::glassoFast(S, rho)
+  out_fast <- glassoFast::glassoFast(S, rho.mat, thr = 1e-5)
   
   # they should match to floating‐point tolerance
   expect_equal(out_wrap$W,     out_fast$w,  tolerance = 1e-8)

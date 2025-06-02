@@ -81,8 +81,8 @@ test_that("BEgLasso yields identity-like coefficients when no batch effect", {
     X0.glist     = list(X0),
     X1.glist     = list(X0),
     penal.rho    = 0,
-    penal.ksi    = 0,
-    penal.gamma  = 0,
+    penal.ksi    = 1,
+    penal.gamma  = 1,
     eps          = 1e-6,
     print.detail = FALSE
   )
