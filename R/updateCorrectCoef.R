@@ -8,7 +8,7 @@ NULL
 #' @title Batch‐effect `a`/`b` updater (R wrapper)
 #' @inheritParams updateCorrectCoefCpp
 #' @param print.detail logical; echo a message?
-#' @return List with components `coef.a` and `coef.b
+#' @return List with components `coef.a` and `coef.b`
 update.CorrectCoef <- function(X0.glist,
                                X1.glist,
                                Theta.list,

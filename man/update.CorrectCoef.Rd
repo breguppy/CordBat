@@ -19,7 +19,7 @@
 \item{print.detail}{logical; echo a message?}
 }
 \value{
-List with components `coef.a` and `coef.b
+List with components `coef.a` and `coef.b`
 }
 \description{
 Batch‐effect `a`/`b` updater (R wrapper)
