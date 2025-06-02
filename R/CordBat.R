@@ -46,6 +46,7 @@ CordBat <- function(X,
     containQC <- FALSE
     group <- rep(1, nrow(X))
   } else {
+    # If group is provided, remove QC samples for processing
     containQC <- any(group == "QC")
     if (containQC) {
       X.init <- X
@@ -87,9 +88,10 @@ CordBat <- function(X,
       cur.batch <- batch.levels[i]
       bati.idx <- which(batch == cur.batch)
       if (length(bati.idx) == 1) next  # Skip batches with only 1 sample
-      X.bati <- DelOutlier(X[bati.idx, , drop = FALSE])
+      X.bati <- DelOutlier(X[bati.idx, , drop = FALSE]) # Determine sample outliers with PCA
       delsamp.bati <- X.bati$delsampIdx
       
+      # impute outlier measurements in non-sample outliers.
       if (length(delsamp.bati) > 0) {
         dat.bati <- ImputeOutlier(X.bati$X.out)  # Perform imputation only if deletion happened
         bati.delinitIdx <- bati.idx[delsamp.bati]
@@ -100,7 +102,8 @@ CordBat <- function(X,
       }
     }
     if (length(delsampIdx) > 0) {
-      X.nodel <- X.delout
+      X.nodel <- X.delout                    # imputed data with sample outliers remaining untouched
+      X.delout <- X.delout[-delsampIdx, ]    # imputed data with sample outliers removed
     } else {
       X.nodel <- X
     }
@@ -129,12 +132,12 @@ CordBat <- function(X,
   # Initialize corrected matrices 
   #n_del <- nrow(X.delout)
   n_del <- nrow(X)
-  X.cor   <- matrix(0, n_del, p)
-  X.cor.1 <- matrix(0, n_del, p)
+  X.cor   <- matrix(0, nrow(X), p)
+  X.cor.1 <- matrix(0, nrow(X.delout), p)
   
   ref.batch_char <- as.character(ref.batch)
   ref.idx <- which(batch == ref.batch_char)
-  X.cor[ref.idx, ]   <- X.delout[ref.idx, ]
+  X.cor[ref.idx, ]   <- X.nodel[ref.idx, ]
   X.cor.1[ref.idx, ] <- X.delout[ref.idx, ]
   
   X.cor.withQC <- NULL
@@ -270,9 +273,17 @@ CordBat <- function(X,
       
       # Use the valid reference and non-reference groups in downstream functions
       penterm <- findBestPara(Xb0.COMi.glist, Xb1.Batk.COMi.glist, rho, eps, print.detail)
+      
+      if (print.detail) {
+        cat('Batch ', k, ' correction begin......')
+      }
+      
       para.out <- BEgLasso(Xb0.COMi.glist, Xb1.Batk.COMi.glist, rho, 
                            penterm$penal.ksi, penterm$penal.gamma, eps, 
                            print.detail)
+      if (print.detail) {
+        cat('finshed', '\n')
+      }
       
       # Update corrected data (X.cor.1) for this non-reference batch
       # We update for each valid group; note that the order in Xb1.Batk.COMi.glist now corresponds 
