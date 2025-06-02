@@ -315,14 +315,16 @@ CordBat <- function(X,
         X.cor[idx_nodel, metID] <- Xb1.nodel[, metID] %*% coef.A + coef.B
       }
       
-      qc_idx <- which(batch.init == batch_label & group.init == "QC")
-      if (length(qc_idx)) {
-        # Use the same a/b you learned for this batch & community
-        Nqc    <- length(qc_idx)
-        A_mat  <- diag(para.out$coef.a[metID])
-        B_mat  <- matrix(rep(para.out$coef.b[metID], each = Nqc), nrow = Nqc)
-        X_cor_qc <- X_QC[QC_batch == batch_label, metID, drop=FALSE] %*% A_mat + B_mat
-        X.cor.withQC[qc_idx, metID] <- X_cor_qc
+      if (containQC){
+        qc_idx <- which(batch.init == batch_label & group.init == "QC")
+        if (length(qc_idx)) {
+          # Use the same a/b you learned for this batch & community
+          Nqc    <- length(qc_idx)
+          A_mat  <- diag(para.out$coef.a[metID])
+          B_mat  <- matrix(rep(para.out$coef.b[metID], each = Nqc), nrow = Nqc)
+          X_cor_qc <- X_QC[QC_batch == batch_label, metID, drop=FALSE] %*% A_mat + B_mat
+          X.cor.withQC[qc_idx, metID] <- X_cor_qc
+        }
       }
     }
     
