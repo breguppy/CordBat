@@ -95,3 +95,45 @@ test_that("CordBat handles QC samples when grouping = TRUE", {
   # 4. Because skip.impute = TRUE, no samples are removed
   expect_equal(res$delsampIdx, integer(0))
 })
+
+test_that("CordBat removes an extreme outlier from X.cor.1 when skip.impute = FALSE", {
+  set.seed(42)
+  # Create a 10×4 matrix with one extreme outlier in the last row
+  X_normal  <- matrix(rnorm(10 * 4, mean = 0, sd = 1), nrow = 10, ncol = 4)
+  X_outlier <- matrix(1e5, nrow = 1, ncol = 4)
+  X <- rbind(X_normal, X_outlier)
+  
+  batch <- rep("A", 11)
+  
+  res_outlier <- DelOutlier(X)
+  n_removed_outlier <- length(res_outlier$delsampIdx)
+  
+  expect_gt(n_removed_outlier, 0)
+  
+  res <- CordBat:::CordBat(
+    X           = X,
+    batch       = batch,
+    ref.batch   = "A",
+    skip.impute = FALSE,
+    print.detail = FALSE
+  )
+  
+  # The extreme outlier is the 11th sample, so delsampIdx should be exactly 11
+  expect_length(res$delsampIdx, 1)
+  expect_equal(res$delsampIdx, 11)
+  
+  # X.cor always has the same number of rows as the original X (11 rows)
+  expect_equal(nrow(res$X.cor), 11)
+  
+  # X.cor.1 should have one fewer row because the extreme outlier was removed
+  expect_lt(nrow(res$X.cor.1), nrow(res$X.cor))
+  
+  # X.cor.1 should have one fewer row than X
+  expect_true(is.matrix(res$X.cor.1))
+  expect_equal(nrow(res$X.cor.1), nrow(X) - 1)
+  
+  # None of the rows in X.cor.1 should match the extreme vector c(1e6,1e6,1e6,1e6)
+  extreme_vec <- as.numeric(X_outlier)
+  found_matching <- any(apply(res$X.cor.1, 1, function(row) all(row == extreme_vec)))
+  expect_false(found_matching)
+})

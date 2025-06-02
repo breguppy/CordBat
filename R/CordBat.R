@@ -80,9 +80,13 @@ CordBat <- function(X,
   group.levels <- levels(group.f)
   group.num <- length(group.levels)
   
+  batch.old <- batch
+  group.old <- group
   delsampIdx <- integer()
   if(!skip.impute) {
     # Outlier Removal and Imputation
+    batch.new <- batch
+    group.new <- group
     X.delout <- X
     for (i in seq_len(batch.num)) {
       cur.batch <- batch.levels[i]
@@ -104,13 +108,17 @@ CordBat <- function(X,
     if (length(delsampIdx) > 0) {
       X.nodel <- X.delout                    # imputed data with sample outliers remaining untouched
       X.delout <- X.delout[-delsampIdx, ]    # imputed data with sample outliers removed
+      batch.new <- batch.new[-delsampIdx]
+      group.new <- group.new[-delsampIdx]
     } else {
       X.nodel <- X
     }
     # Refresh factors after outlier removal
+    batch <- batch.new
     batch.f <- factor(batch)
     batch.levels <- levels(batch.f)
     batch.num <- length(batch.levels)
+    group <- group.new
     group.f <- factor(group)
     group.levels <- levels(group.f)
     group.num <- length(group.levels)
@@ -130,18 +138,18 @@ CordBat <- function(X,
   for (i in seq_len(batch.num)) Xcor.para[[i]] <- para
   
   # Initialize corrected matrices 
-  #n_del <- nrow(X.delout)
-  n_del <- nrow(X)
   X.cor   <- matrix(0, nrow(X), p)
   X.cor.1 <- matrix(0, nrow(X.delout), p)
   
   ref.batch_char <- as.character(ref.batch)
+  ref.idx.old <- which(batch.old == ref.batch_char)
   ref.idx <- which(batch == ref.batch_char)
-  X.cor[ref.idx, ]   <- X.nodel[ref.idx, ]
+  X.cor[ref.idx.old, ]   <- X.nodel[ref.idx.old, ]
   X.cor.1[ref.idx, ] <- X.delout[ref.idx, ]
   
+  
   X.cor.withQC <- NULL
-  if (containQC) {
+  if ((!is.na(containQC)) & containQC) {
     X.cor.withQC <- matrix(0, nrow(X.init), p)
     ref.idx.init <- which(as.character(batch.init) == as.character(ref.batch))
     X.cor.withQC[ref.idx.init, ] <- X.init[ref.idx.init, ]
@@ -306,7 +314,7 @@ CordBat <- function(X,
       Xcor.para[[k]]$coef.b[metID] <- para.out$coef.b[metID]
       
       # Update fully corrected data (X.cor) using outlier-free data (X.nodel)
-      idx_nodel <- which(batch == batch_label)
+      idx_nodel <- which(batch.old == batch_label)
       if (length(idx_nodel) > 0) {
         Xb1.nodel <- X.nodel[idx_nodel, , drop = FALSE]
         N1 <- nrow(Xb1.nodel)
@@ -315,7 +323,7 @@ CordBat <- function(X,
         X.cor[idx_nodel, metID] <- Xb1.nodel[, metID] %*% coef.A + coef.B
       }
       
-      if (containQC){
+      if ((!is.na(containQC)) & containQC) {
         qc_idx <- which(batch.init == batch_label & group.init == "QC")
         if (length(qc_idx)) {
           # Use the same a/b you learned for this batch & community
