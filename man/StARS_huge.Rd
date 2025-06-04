@@ -4,7 +4,7 @@
 \alias{StARS_huge}
 \title{StARS via huge::huge + huge::huge.select}
 \usage{
-StARS_huge(X, b, M, lambda.grid, seed = NULL, beta = 0.05, print.detail = TRUE)
+StARS_huge(X, b, M, seed = NULL, beta = 0.05, print.detail = TRUE)
 }
 \arguments{
 \item{X}{numeric matrix (samples × features)}
@@ -12,8 +12,6 @@ StARS_huge(X, b, M, lambda.grid, seed = NULL, beta = 0.05, print.detail = TRUE)
 \item{b}{subsample size for stability (integer)}
 
 \item{M}{number of subsampling replications (integer)}
-
-\item{lambda.grid}{vector of rhos to try (e.g. seq(0.9,0.1,-0.1) or seq(0.1,0.01,-0.01))}
 
 \item{seed}{optional RNG seed for reproducibility}
 
