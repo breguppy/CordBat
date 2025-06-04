@@ -189,23 +189,7 @@ CordBat <- function(X,
         rhos <- sapply(Xb0.COMi.glist, function(mat) {
           if (nrow(mat) > 5) {
             # coarse grid
-            res <- StARS_huge(
-              X       = mat,
-              b       = round(0.7 * nrow(mat)),
-              M       = 100,
-              lambda.grid = seq(0.9, 0.1, by = -0.1),
-              print.detail = print.detail
-            )[1]
-            if (res == 0.1) {
-              # fine grid
-              res <- StARS_huge(
-                X       = mat,
-                b       = round(0.7 * nrow(mat)),
-                M       = 100,
-                lambda.grid = seq(0.1, 0.01, by = -0.01),
-                print.detail = print.detail
-              )[1]
-            }
+            res <- StARS(mat, round(0.7 * nrow(mat)), 100, print.detail)[1]
             # fallback for very small batches
           } else {
             # coarse grid
@@ -224,23 +208,7 @@ CordBat <- function(X,
       rhos <- sapply(Xb0.COMi.glist, function(mat) {
         if (nrow(mat) > 5) {
           # coarse grid
-          res <- StARS_huge(
-            X       = mat,
-            b       = round(0.7 * nrow(mat)),
-            M       = 100,
-            lambda.grid = seq(0.9, 0.1, by = -0.1),
-            print.detail = print.detail
-          )[1]
-          if (res == 0.1) {
-            # fine grid
-            res <- StARS_huge(
-              X       = mat,
-              b       = round(0.7 * nrow(mat)),
-              M       = 100,
-              lambda.grid = seq(0.1, 0.01, by = -0.01),
-              print.detail = print.detail
-            )[1]
-          }
+          res <- StARS(mat, round(0.7 * nrow(mat)), 100, print.detail)[1]
           # fallback for very small batches
         } else {
           # coarse grid
