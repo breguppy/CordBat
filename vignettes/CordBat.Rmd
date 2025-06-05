@@ -139,16 +139,16 @@ p_batch <- ggplot(pca_df, aes(x = PC1, y = PC2, color = Batch)) +
   geom_point(size = 3, alpha = 0.8) +
   theme_minimal() +
   labs(title = "PCA of Group Effect - Colored by Batch",
-       x = "Principal Component 1",
-       y = "Principal Component 2")
+       x = "PC 1",
+       y = "PC 2")
 
 # Plot PCA colored by Group
 p_group <- ggplot(pca_df, aes(x = PC1, y = PC2, color = Group)) +
   geom_point(size = 3, alpha = 0.8) +
   theme_minimal() +
   labs(title = "PCA of Group Effect - Colored by Group",
-       x = "Principal Component 1",
-       y = "Principal Component 2")
+       x = "PC 1",
+       y = "PC 2")
 
 print(p_batch)
 print(p_group)
@@ -213,16 +213,16 @@ p_batch <- ggplot(pca_df, aes(x = PC1, y = PC2, color = Batch)) +
   geom_point(size = 3, alpha = 0.8) +
   theme_minimal() +
   labs(title = "PCA of Batch and Group Effect - Colored by Batch",
-       x = "Principal Component 1",
-       y = "Principal Component 2")
+       x = "PC 1",
+       y = "PC 2")
 
 # Plot PCA colored by Group
 p_group <- ggplot(pca_df, aes(x = PC1, y = PC2, color = Group)) +
   geom_point(size = 3, alpha = 0.8) +
   theme_minimal() +
   labs(title = "PCA of Batch and Group Effect - Colored by Group",
-       x = "Principal Component 1",
-       y = "Principal Component 2")
+       x = "PC 1",
+       y = "PC 2")
 
 print(p_batch)
 print(p_group)
@@ -269,16 +269,16 @@ p_batch <- ggplot(cor_pca_df, aes(x = PC1, y = PC2, color = Batch)) +
   geom_point(size = 3, alpha = 0.8) +
   theme_minimal() +
   labs(title = "PCA CordBat Corrected Data - Colored by Batch",
-       x = "Principal Component 1",
-       y = "Principal Component 2")
+       x = "PC 1",
+       y = "PC 2")
 
 # Plot PCA colored by Group
 p_group <- ggplot(cor_pca_df, aes(x = PC1, y = PC2, color = Group)) +
   geom_point(size = 3, alpha = 0.8) +
   theme_minimal() +
   labs(title = "PCA CordBat Corrected Data - Colored by Group",
-       x = "Principal Component 1",
-       y = "Principal Component 2")
+       x = "PC 1",
+       y = "PC 2")
 
 print(p_batch)
 print(p_group)

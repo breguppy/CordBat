@@ -165,54 +165,91 @@ old_findBestPara <- function(X0.glist, X1.glist, penal.rho, eps, print.detail) {
 
 
 # -------------------------------------------------------------
-# EBIC select rho via huge::huge + huge::huge.select                              Not used anymore
+# CV + BIC select rho
 # -------------------------------------------------------------
 #' @importFrom stats cov
 #' @importFrom lava tr
-selrho.useCVBIC <- function(X,
-                            print.detail = TRUE,
-                            nlambda      = 50,
-                            gamma        = 0) {
-  if (!requireNamespace("huge", quietly = TRUE)) {
-    stop("Please install the 'huge' package to use EBIC selection.")
+selrho.useCVBIC <- function(X, print.detail = TRUE) {
+  N <- nrow(X)
+  if (N <= 1) {
+    if (print.detail) message("selrho.useCVBIC(): need at least 2 rows to do CV+BIC selection.")
+    return(c(rho.cv = 0.1, MinCVerr = NA_real_))
   }
+  fold <- selfoldforCV(N)
+  CVset.size <- N / fold
   
-  # 1) Fit the full glasso path
-  out <- huge::huge(
-    X,
-    method  = "glasso",
-    nlambda = nlambda,
-    verbose = print.detail
-  )
+  rhos <- seq(from = 0.1, to = 0.9, by = 0.1)
+  R <- length(rhos)
   
-  # 2) EBIC selection (note EBIC.gamma and positional first arg)
-  sel <- huge::huge.select(
-    out,
-    criterion   = "ebic",
-    ebic.gamma  = gamma,
-    verbose     = print.detail
-  )
+  CVerr1 <- matrix(0, nrow = fold, ncol = R)
+  CVerr2 <- numeric(R)
   
-  # 3) Extract the chosen lambda
-  rho.ebic <- sel$opt.lambda
+  # mask for the “upper triangle” of a p×p matrix
+  p <- ncol(X)
+  mask <- upper.tri(matrix(NA, p, p))
   
-  # 4) Grab the EBIC‐vector from the correct slot (‐> sel$ebic)
-  ebic.vec <- if (!is.null(sel$ebic)) {
-    sel$ebic
+  if (fold > 1) {
+    for (r in seq_len(R)) {
+      rho <- rhos[r]
+      
+      for (i in seq_len(fold)) {
+        # split out CV fold i
+        start.index <- (i - 1) * CVset.size + 1
+        end.index   <- i * CVset.size
+        
+        X.cv <- X[start.index:end.index, , drop = FALSE]
+        X.tr <- X[-(start.index:end.index), , drop = FALSE]
+        
+        # fit glasso on the training fold
+        Theta <- graphicalLasso(X.tr, rho, print.detail = print.detail)$Theta
+        
+        # scale+cov of the held‐out fold
+        X.cv.sca <- scale(X.cv, center = TRUE, scale = TRUE)
+        S.cv     <- cov(X.cv.sca)
+        
+        # count edges in the upper triangle of Theta
+        k <- sum(Theta[mask] != 0)
+        
+        # exactly the same BIC‐style error for that fold:
+        CVerr1[i, r] <- k * log(CVset.size) -
+          CVset.size * (log(det(Theta)) - tr(S.cv %*% Theta))
+      }
+    }
+    
+    # average over folds, pick the rho that gives the smallest mean
+    CVerr.mean <- colMeans(CVerr1)
+    MinCVerr  <- min(CVerr.mean)
+    idx_all <- which(CVerr.mean == MinCVerr)
+    i_max   <- max(idx_all)          # index of the largest‐rho among the ties
+    rho.cv  <- rhos[i_max]
+    
   } else {
-    stop("Unexpected huge.select output: no sel$ebic component found")
+    # fold = 1
+    # scale the entire X once
+    X.sca <- scale(X, center = TRUE, scale = TRUE)
+    S     <- cov(X.sca)
+    
+    for (r in seq_len(R)) {
+      Theta <- graphicalLasso(X, rhos[r])$Theta
+      k <- sum(Theta[mask] != 0)
+      CVerr2[r] <- k * log(N) -
+        2 * (log(det(Theta)) - tr(S %*% Theta))
+    }
+    
+    MinCVerr <- min(CVerr2)
+    idx_all <- which(CVerr2 == MinCVerr)
+    i_max   <- max(idx_all)          # index of the largest‐rho among the ties
+    rho.cv  <- rhos[i_max]
   }
-  ebic.val <- ebic.vec[ sel$opt.index ]
   
-  # 5) Message & return
   if (print.detail) {
-    message(sprintf(
-      "EBIC: select rho = %s  (EBIC = %.2f)",
-      rho.ebic, ebic.val
-    ))
+    message(
+      "CV + BIC selects rho = ", rho.cv,
+      " with MinCVerr = ", round(MinCVerr, 4)
+    )
   }
   
-  return(c(rho.ebic, ebic.val))
+  return(c(rho.cv, MinCVerr))
 }
 
 

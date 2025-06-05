@@ -89,7 +89,7 @@ StARS <- function(X, b, M, print.detail = TRUE) {
   }
   
   if (print.detail) {
-    message("Selected rho =", Sel.rho, " with instability = ", round(D_var, 4), "\n")
+    message("StARS Selected rho =", Sel.rho, " with instability = ", round(D_var, 4), "\n")
   }
   
   return(c(Sel.rho, D_var))

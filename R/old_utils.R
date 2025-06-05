@@ -290,7 +290,7 @@ old_findBestPara <- function(X0.glist, X1.glist, penal.rho, eps, print.detail) {
 # -------------------------------------------------------------
 #' @importFrom stats cov
 #' @importFrom lava tr
-old_selrho.useCVBIC <- function(X, print.detail = TRUE) {
+selrho.useCVBIC <- function(X, print.detail = TRUE) {
   N <- nrow(X)
   fold <- selfoldforCV(N)
   CVset.size <- N / fold
@@ -343,7 +343,7 @@ old_selrho.useCVBIC <- function(X, print.detail = TRUE) {
   }
   
   if (print.detail) {
-    message('CVBIC: select rho =', rho.cv, '\n')
+    message('CVBIC: selected rho =', rho.cv, 'with MinCVerr =', MinCVerr, '\n')
   }
   
   return(c(rho.cv, MinCVerr))

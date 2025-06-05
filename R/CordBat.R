@@ -160,7 +160,7 @@ CordBat <- function(X,
   Xb0.mat <- X.delout[ref_batch_idx, , drop = FALSE]
   COM <- getAllCom(Xb0.mat)
   if (print.detail) message("Community detection: ", length(COM), " communities", "\n",
-                            "Size: ", base::lengths(COM), "\n")
+                            "Size: ", paste(vapply(COM, length, integer(1)), collaspe = " "), "\n")
   
   # === Batch effect correction for each community ===
   for (i in seq_along(COM)) {
@@ -189,17 +189,11 @@ CordBat <- function(X,
         rhos <- sapply(Xb0.COMi.glist, function(mat) {
           if (nrow(mat) > 5) {
             # coarse grid
-            res <- StARS(mat, round(0.7 * nrow(mat)), 100, print.detail)[1]
+            StARS(mat, round(0.7 * nrow(mat)), 100, print.detail)[1]
             # fallback for very small batches
           } else {
-            # coarse grid
-            res <- select_rho_cv_bic(mat, seq(0.1, 0.9, by = 0.1), print.detail = print.detail)[1]
-            if (res == 0.1) {
-              # fine grid
-              res <- select_rho_cv_bic(mat, seq(0.01, 0.1, by = 0.01), print.detail = print.detail)[1]
-            }
+            selrho.useCVBIC(mat, print.detail)[1]
           }
-          return(res)
         }),
         type = "message"
       )
@@ -208,17 +202,11 @@ CordBat <- function(X,
       rhos <- sapply(Xb0.COMi.glist, function(mat) {
         if (nrow(mat) > 5) {
           # coarse grid
-          res <- StARS(mat, round(0.7 * nrow(mat)), 100, print.detail)[1]
+          StARS(mat, round(0.7 * nrow(mat)), 100, print.detail)[1]
           # fallback for very small batches
         } else {
-          # coarse grid
-          res <- select_rho_cv_bic(mat, seq(0.1, 0.9, by = 0.1), print.detail = print.detail)[1]
-          if (res == 0.1) {
-            # fine grid
-            res <- select_rho_cv_bic(mat, seq(0.01, 0.1, by = 0.01), print.detail = print.detail)[1]
-          }
+          selrho.useCVBIC(mat, print.detail)[1]
         }
-        return(res)
       })
     }
     
