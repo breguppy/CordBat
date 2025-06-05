@@ -1,4 +1,4 @@
-#' findBestPara: cached & vectorized EBIC grid search (sequential)
+#' findBestPara: cached & vectorized EBIC grid search
 #'
 #' Grid–search over (ksi, gamma) using BEgLasso calls,
 #' then EBIC‐score each fit with a vectorized mapply.

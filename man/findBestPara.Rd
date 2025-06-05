@@ -2,7 +2,7 @@
 % Please edit documentation in R/findBestPara.R
 \name{findBestPara}
 \alias{findBestPara}
-\title{findBestPara: cached & vectorized EBIC grid search (sequential)}
+\title{findBestPara: cached & vectorized EBIC grid search}
 \usage{
 findBestPara(X0.glist, X1.glist, penal.rho, eps, print.detail = FALSE)
 }

@@ -1,38 +1,264 @@
-# -------------------------------------------------------------
-# select a proper fold number for CV
-# -------------------------------------------------------------
-old_selfoldforCV <- function(N){
-  foldstosel <- 2:9
-  Num.quo <- N %/% foldstosel
-  Num.rem <- N %% foldstosel
+#------------------
+# Old implementation of Graphical Lasso
+#------------------
+#' @importFrom stats cov
+#' @importFrom utils capture.output
+old_graphicalLasso <- function(X, rho, print.detail) {
+  N <- nrow(X)
+  p <- ncol(X)
   
-  # if no fold meets requirements, then change N
-  selIdx <- (Num.rem == 0 & Num.quo >= 10)
-  folds <- foldstosel[selIdx]
-  folds.num <- length(folds)
-  
-  if (folds.num != 0) {
-    d5 <- abs(rep(5, folds.num) - folds)
-    fold <- folds[d5 == min(d5)]
-    if (length(fold) > 1) {
-      if (N > 300) {
-        fold <- max(fold)
-      } else {
-        fold <- min(fold)
-      }
-    }
-  } else {
-    fold <- 1
+  if (N > 1) { # When there are multiple samples, center and scale normally. 
+    # Standardize data: center and scale
+    X <- scale(X, center = TRUE, scale = TRUE) 
+    # Compute covariance matrix
+    S <- cov(X) 
+  } else { # With one sample, standardization isn’t possible since the sample variance is undefined.
+    # Define S as a zero matrix (since there is no variability)  
+    S <- matrix(0, p, p) 
   }
   
-  return(fold)
+  # Initialize variables
+  Theta <- matrix(0, p, p)
+  W <- S + rho * diag(p)  # Regularized covariance matrix
+  B <- matrix(0, p - 1, p)
+  
+  threshold <- 1e-5  # Convergence threshold
+  
+  # Iterative update
+  repeat {
+    W_old <- W  # Store previous iteration
+    
+    if (print.detail) {
+      # Capture all output generated during the loop execution
+      detailOutput <- capture.output(
+        for (i in seq_len(p)) {
+          idx <- setdiff(seq_len(p), i)  # Exclude current index
+          
+          W_11 <- W[idx, idx]
+          s_12 <- S[idx, i]
+          
+          # Update B using penalized regression
+          B[, i] <- CDfgL(W_11, B[, i], s_12, rho, print.detail = print.detail)
+          W[idx, i] <- W_11 %*% B[, i]
+          W[i, idx] <- W[idx, i]
+        }, type = "message")
+      if(length(detailOutput) > 0) {
+        # Print the entire captured output as one message
+        message(paste(unique(detailOutput)))
+      }
+    } else {
+      for (i in seq_len(p)) {
+        idx <- setdiff(seq_len(p), i)  # Exclude current index
+        
+        W_11 <- W[idx, idx]
+        s_12 <- S[idx, i]
+        
+        # Update B using penalized regression
+        B[, i] <- CDfgL(W_11, B[, i], s_12, rho, print.detail = print.detail)
+        W[idx, i] <- W_11 %*% B[, i]
+        W[i, idx] <- W[idx, i]
+      }
+    }
+    
+    # Convergence check
+    dW <- W - W_old
+    S_ndiag <- S[upper.tri(S, diag = FALSE)]
+    
+    # Avoid division by zero in convergence metric
+    if (mean(abs(dW)) / mean(abs(S[upper.tri(S, diag = FALSE)] + 1e-6)) < threshold) break
+  }
+  
+  # Compute precision matrix Theta
+  for (i in seq_len(p)) {
+    idx <- setdiff(seq_len(p), i)
+    Theta[i, i] <- 1 / (W[i, i] - t(W[idx, i]) %*% B[, i])
+    Theta[idx, i] <- -B[, i] * Theta[i, i]
+    Theta[i, idx] <- Theta[idx, i]
+  }
+  
+  # Return results
+  list(Theta = Theta, W = W)
+}
+
+#------------------
+# Old implemetation of BEgLasso (with old_update_CorrectCoeff)
+#------------------
+#' @importFrom utils capture.output
+old_BEgLasso <- function(X0.glist, 
+                         X1.glist, 
+                         penal.rho, 
+                         penal.ksi,
+                         penal.gamma, 
+                         eps, 
+                         print.detail) {
+  
+  G <- length(X0.glist)
+  p <- ncol(X0.glist[[1]])
+  
+  # Precompute sample sizes
+  N0_gvec <- sapply(X0.glist, nrow)
+  N1_gvec <- sapply(X1.glist, nrow)
+  
+  # Compute mean matrices
+  X0.m.gmat <- do.call(cbind, lapply(X0.glist, colMeans))
+  X1.m.gmat <- do.call(cbind, lapply(X1.glist, colMeans))
+  
+  # Initialize variables
+  Theta.list <- vector("list", G)
+  B.list <- vector("list", G)
+  coef.as <- X0.m.gmat / X1.m.gmat
+  coef.a <- rowMeans(coef.as)
+  coef.b <- numeric(p)
+  
+  coef.A <- diag(coef.a)
+  
+  # Initialize Theta and B for each group
+  for (g in seq_len(G)) {
+    Theta.list[[g]] <- matrix(0, p, p)
+    B.list[[g]] <- matrix(0, p - 1, p)
+  }
+  
+  # Correct X1 using initial coefficients
+  X1.cor.glist <- lapply(seq_len(G), function(g) {
+    coef.B.gi <- matrix(rep(coef.b, each = N1_gvec[g]), nrow = N1_gvec[g])
+    X1.glist[[g]] %*% coef.A + coef.B.gi
+  })
+  
+  # Compute initial covariance matrices
+  W.list <- lapply(seq_len(G), function(g) {
+    X.gi <- rbind(X0.glist[[g]], X1.cor.glist[[g]])
+    S0_gi <- cov(scale(X.gi, center = TRUE, scale = TRUE))
+    S0_gi + penal.rho * diag(1, p)
+  })
+  
+  # Iteration variables
+  finished.gmat <- matrix(FALSE, (p - 1) * p / 2, G)
+  times0.gvec <- integer(G)
+  times1.gvec <- integer(G)
+  
+  # Iterative correction
+  repeat {
+    W_old.list <- W.list
+    
+    S.list <- lapply(seq_len(G), function(g) {
+      coef.B.gi <- matrix(rep(coef.b, each = N1_gvec[g]), nrow = N1_gvec[g])
+      X1.gi.cor <- X1.glist[[g]] %*% coef.A + coef.B.gi
+      X.gi <- rbind(X0.glist[[g]], X1.gi.cor)
+      cov(scale(X.gi, center = TRUE, scale = TRUE))
+    })
+    
+    # Update B and W using graphical lasso approach
+    if (print.detail) {
+      # Capture all output generated during the loop execution
+      detailOutput <- capture.output(
+        for (j in seq_len(p)) {
+          idx <- setdiff(seq_len(p), j)
+          
+          for (g in seq_len(G)) {
+            Wi_11 <- W.list[[g]][idx, idx]
+            si_12 <- S.list[[g]][idx, j]
+            
+            B.list[[g]][, j] <- CDfgL(Wi_11, B.list[[g]][, j], si_12, penal.rho, 
+                                      print.detail = print.detail)
+            W.list[[g]][idx, j] <- Wi_11 %*% B.list[[g]][, j]
+            W.list[[g]][j, idx] <- W.list[[g]][idx, j]
+          }
+        }
+        , type = "message")
+      if(length(detailOutput) > 0) {
+        # Print the entire captured output as one message
+        message(paste(unique(detailOutput)))
+      }
+    } else {
+      for (j in seq_len(p)) {
+        idx <- setdiff(seq_len(p), j)
+        
+        for (g in seq_len(G)) {
+          Wi_11 <- W.list[[g]][idx, idx]
+          si_12 <- S.list[[g]][idx, j]
+          
+          B.list[[g]][, j] <- CDfgL(Wi_11, B.list[[g]][, j], si_12, penal.rho, 
+                                    print.detail = print.detail)
+          W.list[[g]][idx, j] <- Wi_11 %*% B.list[[g]][, j]
+          W.list[[g]][j, idx] <- W.list[[g]][idx, j]
+        }
+      }
+    }
+    
+    
+    # Update Theta
+    for (g in seq_len(G)) {
+      for (j in seq_len(p)) {
+        idx <- setdiff(seq_len(p), j)
+        Theta.list[[g]][j, j] <- W.list[[g]][j, j] - t(W.list[[g]][idx, j]) %*% B.list[[g]][, j]
+        Theta.list[[g]][idx, j] <- -B.list[[g]][, j] * Theta.list[[g]][j, j]
+        Theta.list[[g]][j, idx] <- Theta.list[[g]][idx, j]
+      }
+    }
+    
+    # Check convergence
+    W_new.ndiag <- lapply(seq_len(G), function(g) W.list[[g]][upper.tri(W.list[[g]], diag = FALSE)])
+    W_old.ndiag <- lapply(seq_len(G), function(g) W_old.list[[g]][upper.tri(W_old.list[[g]], diag = FALSE)])
+    
+    zeroIdx.list <- lapply(W_old.ndiag, function(w) w < 1e-5)
+    
+    for (g in seq_len(G)) {
+      zeroIdx_g <- zeroIdx.list[[g]]
+      if (any(zeroIdx_g)) {
+        if (all(W_new.ndiag[[g]][zeroIdx_g] < 1e-5)) {
+          times0.gvec[g] <- times0.gvec[g] + 1
+        } else {
+          times0.gvec[g] <- 0
+        }
+        if (times0.gvec[g] >= 5) {
+          finished.gmat[zeroIdx_g, g] <- TRUE
+        }
+      }
+      
+      if (any(!zeroIdx_g)) {
+        dW_g <- max(abs((W_new.ndiag[[g]][!zeroIdx_g] - W_old.ndiag[[g]][!zeroIdx_g]) 
+                        / W_old.ndiag[[g]][!zeroIdx_g]))
+        
+        if (dW_g < eps) {
+          times1.gvec[g] <- times1.gvec[g] + 1
+        } else {
+          times1.gvec[g] <- 0
+        }
+        
+        if (times1.gvec[g] >= 3) {
+          finished.gmat[!zeroIdx_g, g] <- TRUE
+        }
+      }
+    }
+    
+    if (all(as.vector(finished.gmat))) break
+    
+    # Update coefficients
+    coef.update <- update_CorrectCoef(X0.glist, X1.glist, Theta.list, coef.a, 
+                                      coef.b, penal.ksi, penal.gamma, print.detail)
+    coef.a <- coef.update$coef.a
+    coef.b <- coef.update$coef.b
+  }
+  
+  # Ensure non-negative coef.a
+  coef.a[coef.a < 0] <- 0.05
+  
+  ### This part is new ###
+  # Re-compute the final X1.cor.glist
+  coef.A <- diag(coef.a)
+  X1.cor.glist <- lapply(seq_len(G), function(g) {
+    coef.B.gi <- matrix(rep(coef.b, each = N1_gvec[g]), nrow = N1_gvec[g])
+    X1.glist[[g]] %*% coef.A + coef.B.gi
+  })
+  
+  list(Theta = Theta.list, X1.cor = X1.cor.glist, coef.a = coef.a, coef.b = coef.b)
 }
 
 
 # ------------------
 # soft threshold
 # ------------------
-old_soft <- function(x, lambda){
+soft <- function(x, lambda){
   s <- sign(x) * max(abs(x) - lambda, 0)
   return(s)
 }
@@ -41,7 +267,7 @@ old_soft <- function(x, lambda){
 # -------------------
 # coordinate descent for graphical lasso sub-problem
 # -------------------
-old_CDfgL <- function(V, beta_i, u, rho, maxIter = 200, print.detail){
+CDfgL <- function(V, beta_i, u, rho, maxIter = 200, print.detail){
   p_1 <- ncol(V)
   
   # initialize
@@ -290,7 +516,7 @@ old_findBestPara <- function(X0.glist, X1.glist, penal.rho, eps, print.detail) {
 # -------------------------------------------------------------
 #' @importFrom stats cov
 #' @importFrom lava tr
-selrho.useCVBIC <- function(X, print.detail = TRUE) {
+old_selrho.useCVBIC <- function(X, print.detail = TRUE) {
   N <- nrow(X)
   fold <- selfoldforCV(N)
   CVset.size <- N / fold
@@ -347,65 +573,4 @@ selrho.useCVBIC <- function(X, print.detail = TRUE) {
   }
   
   return(c(rho.cv, MinCVerr))
-}
-
-
-# -------------------------------------------------------------
-# Delete outliers in data 
-# -------------------------------------------------------------
-#' @importFrom stats sd
-#' @importFrom mixOmics pca
-old_DelOutlier <- function(X) {
-  pca.dat <- pca(X, ncomp = 3, center = TRUE, scale = TRUE)
-  pca.dat.varX <- pca.dat$variates$X
-  delsampIdx <- c()
-  for (i in 1:3) {
-    pc.i <- pca.dat.varX[, i]
-    pc.i.m <- mean(pc.i)
-    pc.i.sd <- sd(pc.i)
-    pc.i.min <- pc.i.m - 3 * pc.i.sd
-    pc.i.max <- pc.i.m + 3 * pc.i.sd
-    delsampIdx <- c(delsampIdx, which(pc.i < pc.i.min | pc.i > pc.i.max))
-  }
-  delsampIdx <- unique(delsampIdx)
-  
-  if (length(delsampIdx) == 0) {
-    X.out <- X
-  } else {
-    X.out <- X[-delsampIdx, ]
-  }
-  
-  Del.result <- list(delsampIdx = delsampIdx, 
-                     X.out = X.out)
-  return(Del.result)
-}
-
-
-# -------------------------------------------------------------
-# Impute outliers in data
-# -------------------------------------------------------------
-#' @importFrom stats sd
-#' @importFrom DMwR2 knnImputation
-old_ImputeOutlier <- function(X) {
-  p <- ncol(X)
-  X.out <- X
-  for (i in 1:p) {
-    dat.i <- X[, i]  # Fixed use column i instead of p
-    dat.i.m <- mean(dat.i)
-    dat.i.sd <- sd(dat.i)
-    dat.i.max <- dat.i.m + 4 * dat.i.sd
-    dat.i.min <- dat.i.m - 4 * dat.i.sd
-    dat.i[dat.i < dat.i.min | dat.i > dat.i.max] <- NA
-    X.out[, i] <- dat.i  # assign to column i
-  }
-  
-  na.num <- sum(is.na(X.out))
-  if (na.num != 0) {
-    X.out <- as.data.frame(X.out)
-    X.out <- knnImputation(X.out)
-  }
-  
-  X.out <- as.matrix(X.out)
-  
-  return(X.out)
 }

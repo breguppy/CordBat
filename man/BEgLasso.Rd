@@ -44,4 +44,5 @@ A list containing:
 This function applies a batch effect correction method using the
 Group Graphical Lasso (GGM) approach, leveraging the fast C++ backend
 via the `graphicalLasso()` helper for covariance and precision updates.
+Note `graphicalLasso()` calls `glassoFast()`.
 }

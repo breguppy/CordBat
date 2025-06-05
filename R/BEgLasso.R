@@ -3,6 +3,7 @@
 #' This function applies a batch effect correction method using the
 #' Group Graphical Lasso (GGM) approach, leveraging the fast C++ backend
 #' via the `graphicalLasso()` helper for covariance and precision updates.
+#' Note `graphicalLasso()` calls `glassoFast()`.
 #'
 #' @param X0.glist A list of matrices where each matrix corresponds to a batch
 #'                  in group 0 (reference batch).
@@ -23,7 +24,6 @@
 #'   }
 #'
 #' @importFrom stats cov
-#' @importFrom utils capture.output
 #' @export
 BEgLasso <- function(
     X0.glist,
@@ -102,7 +102,7 @@ BEgLasso <- function(
     # Check convergence on off-diagonals
     W_new_nd <- lapply(W.list, function(W) W[upper.tri(W, diag = FALSE)])
     W_old_nd <- lapply(W_old.list, function(W) W[upper.tri(W, diag = FALSE)])
-    zeroIdx <- lapply(W_old_nd, function(v) v < eps)
+    zeroIdx <- lapply(W_old_nd, function(v) v < 1e-5)
     
     for (g in seq_len(G)) {
       zi <- zeroIdx[[g]]
@@ -130,7 +130,6 @@ BEgLasso <- function(
     
     if (all(as.vector(finished.gmat))) break
     
-    # Update a & b via fast C++ routine
     upd <- update.CorrectCoef(
       X0.glist, X1.glist, Theta.list,
       coef.a, coef.b,
