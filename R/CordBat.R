@@ -160,7 +160,7 @@ CordBat <- function(X,
   Xb0.mat <- X.delout[ref_batch_idx, , drop = FALSE]
   COM <- getAllCom(Xb0.mat)
   if (print.detail) message("Community detection: ", length(COM), " communities", "\n",
-                            "Size: ", lengths(COM), "\n")
+                            "Size: ", base::lengths(COM), "\n")
   
   # === Batch effect correction for each community ===
   for (i in seq_along(COM)) {
