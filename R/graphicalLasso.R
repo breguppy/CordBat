@@ -36,7 +36,7 @@ graphicalLasso <- function(X, rho, print.detail = TRUE) {
   
   # ensure penality is only applied to the non-diagonal (like paper code)
   rho.mat <- matrix(rho, nrow(S), ncol(S))
-  diag(rho.mat) <- 0
+  #diag(rho.mat) <- 0
   # call the fast C++ implementation
   #    this will error if glassoFast is missing, but
   #    since we put it in Imports, it should always be there.
