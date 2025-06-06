@@ -57,33 +57,56 @@ getAllCom <- function(X) {
     cmty.sizeis1 <- which(lengths(lastCOM) == 1)
     if (length(cmty.sizeis1) > 0) {
       for (i in cmty.sizeis1) {
-        S1.metID <- lastCOM[[i]]
-        allCorwithS1 <- G[, S1.metID]
-        allCorwithS1[S1.metID] <- 0  # Ignore self-correlation
-        Maxcor.metID <- which.max(allCorwithS1)
-      
-        mergeCmty <- ComtyID[Maxcor.metID]
-        lastCOM[[mergeCmty]] <- c(lastCOM[[mergeCmty]], S1.metID)
-        ComtyID[S1.metID] <- mergeCmty
+        # BUT recheck that it is STILL length 1, because it might have been merged already
+        if (length(lastCOM[[i]]) == 1) {
+          S1.metID      <- lastCOM[[i]]
+          allCorwithS1  <- G[, S1.metID]
+          allCorwithS1[S1.metID] <- 0   # ignore self‐correlation
+          Maxcor.metID  <- which.max(allCorwithS1)
+          
+          mergeCmty     <- ComtyID[Maxcor.metID]
+          # Append the singleton feature into that existing community
+          lastCOM[[mergeCmty]] <- c(lastCOM[[mergeCmty]], S1.metID)
+          ComtyID[S1.metID]     <- mergeCmty
+        }
       }
-      lastCOM <- lastCOM[-cmty.sizeis1]
+      # Now recalculate sizes and drop EXACTLY those that remain length 1
+      ComtySize    <- lengths(lastCOM)
+      cmty.sizeis1 <- which(ComtySize == 1)
+      if (length(cmty.sizeis1) > 0) {
+        lastCOM <- lastCOM[-cmty.sizeis1]
+      }
     }
+    
   
     # Merge two-feature communities into nearest correlated community
-    cmty.sizeis2 <- which(lengths(lastCOM) == 2)
+    ComtySize      <- lengths(lastCOM)
+    cmty.sizeis2   <- which(ComtySize == 2)
+    
     if (length(cmty.sizeis2) > 0) {
       for (i in cmty.sizeis2) {
-        S2.metID <- lastCOM[[i]]
-        allCorwithS2 <- G[, S2.metID]
-        allCorwithS2[S2.metID, ] <- 0  # Ignore self-correlation
-        Maxcor.metID <- which(allCorwithS2 == max(allCorwithS2), arr.ind = TRUE)[1]
-      
-        mergeCmty <- ComtyID[Maxcor.metID]
-        lastCOM[[mergeCmty]] <- c(lastCOM[[mergeCmty]], S2.metID)
+        # Only merge if it's STILL length 2 at this moment:
+        if (length(lastCOM[[i]]) == 2) {
+          S2.metID     <- lastCOM[[i]]
+          allCorwithS2 <- G[, S2.metID]
+          # zero out any correlation of those two features with themselves
+          allCorwithS2[S2.metID, ] <- 0  
+          # find the single feature index (across all features) which has the max correlation to either of these two
+          Maxcor.metID <- which(allCorwithS2 == max(allCorwithS2), arr.ind = TRUE)[1]
+          
+          mergeCmty    <- ComtyID[Maxcor.metID]
+          lastCOM[[mergeCmty]] <- c(lastCOM[[mergeCmty]], S2.metID)
+        }
       }
-      lastCOM <- lastCOM[-cmty.sizeis2]
+      # Recompute sizes and delete any groups that remain length 2
+      ComtySize      <- lengths(lastCOM)
+      cmty.sizeis2   <- which(ComtySize == 2)
+      if (length(cmty.sizeis2) > 0) {
+        lastCOM <- lastCOM[-cmty.sizeis2]
+      }
     }
   }
+  
   return(lastCOM)
 }
 
