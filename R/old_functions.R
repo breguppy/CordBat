@@ -532,7 +532,7 @@ old_selrho.useCVBIC <- function(X, print.detail = TRUE) {
         X.cv <- X[start.index:end.index, ]
         X.tr <- X[-(start.index:end.index), ]
         
-        c.mat <- graphicalLasso(X.tr, rho)
+        c.mat <- graphicalLasso(X.tr, rho, print.detail = print.detail)
         Theta <- c.mat$Theta
         
         X.cv.sca <- scale(X.cv, center = TRUE, scale = TRUE)
@@ -542,7 +542,7 @@ old_selrho.useCVBIC <- function(X, print.detail = TRUE) {
         CVerr1[i, r] <- k * log(CVset.size) - CVset.size * (log(det(Theta)) - tr(S.cv %*% Theta))
       }
     } else {
-      c.mat <- graphicalLasso(X, rho, print.detail)
+      c.mat <- graphicalLasso(X, rho, print.detail = print.detail)
       Theta <- c.mat$Theta
       # Added to handle matrix of 1 row
       if (nrow(X) > 1) { 
@@ -567,7 +567,7 @@ old_selrho.useCVBIC <- function(X, print.detail = TRUE) {
   }
   
   if (print.detail) {
-    message('CVBIC: selected rho =', rho.cv, 'with MinCVerr =', MinCVerr, '\n')
+    message('CVBIC: select rho =', rho.cv, '\n')
   }
   
   return(c(rho.cv, MinCVerr))

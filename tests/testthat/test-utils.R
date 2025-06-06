@@ -5,6 +5,7 @@ library(CordBat)
 ## -----------------------------------------------------------
 ## 1.  selfoldforCV   ----------------------------------------
 ## -----------------------------------------------------------
+
 test_that("selfoldforCV returns 1 when there are no valid folds", {
   # N too small (no N %% k == 0 for k=2:9 with N%/%k >=10)
   expect_equal(selfoldforCV(19), 1)
@@ -32,6 +33,7 @@ test_that("selfoldforCV breaks ties by choosing the larger fold when N > 300", {
 ## -----------------------------------------------------------
 ## 2.  soft -----------------------------------------------
 ## -----------------------------------------------------------
+
 test_that("soft returns zero when abs(x) <= lambda", {
   # scalars
   expect_equal(soft(0, 1), 0)
@@ -61,6 +63,7 @@ test_that("soft: lambda > max(abs(x)) maps everything to zero", {
 ## -----------------------------------------------------------
 ## 3.  CDfgL  ----------------------------------------------
 ## -----------------------------------------------------------
+
 test_that("CDfgL converges on simple input", {
   V <- diag(3)  # Identity matrix
   beta_i <- c(0.5, -0.3, 0.1)
@@ -113,6 +116,7 @@ test_that("CDfgL hits maximum iterations when convergence is impossible", {
 ## -----------------------------------------------------------
 ## 4.  update_CorrectCoef  ----------------------------------
 ## -----------------------------------------------------------
+
 test_that("update_CorrectCoef returns sane dimensions and small changes on identical data", {
   set.seed(123)
   G <- 1; n <- 12; p <- 4
@@ -255,6 +259,7 @@ test_that("findBeatPara gives same output at old_findBestPara when batch effect 
 ## -----------------------------------------------------------
 ## 6.  selrho.useCVBIC  -------------------------------------
 ## -----------------------------------------------------------
+
 test_that("selrho.useCVBIC returns correct structure and rho from candidate grid", {
   set.seed(7)
   X <- matrix(rnorm(120), 20, 6)
@@ -275,8 +280,8 @@ test_that("selrho.useCVBIC emits selection message when print.detail = TRUE", {
   )
 })
 
-test_that("selrho.useCVBIC returns the same values as old_selrho.useCVBIC", {
-  set.seed(3146)
+test_that("selrho.useCVBIC returns the same values as old_selrho.useCVBIC when there is exactly one optimal rho", {
+  set.seed(123)
   
   X <- matrix(rnorm(200), nrow = 20, ncol = 10)
   new_out <- selrho.useCVBIC(X, print.detail = FALSE)
@@ -286,4 +291,56 @@ test_that("selrho.useCVBIC returns the same values as old_selrho.useCVBIC", {
               info = sprintf("New rho =  %g and old rho = %g", new_out[1], old_out[1]))
   expect_true(new_out[2] == old_out[2],
               info = sprintf("New MinCVerr =  %g and old MinCVerr = %g", new_out[2], old_out[2]))
+})
+
+test_that("selrho.useCVBIC returns the largerst rho in old_selrho.useCVBIC when there is a tie for MinCVerr", {
+  set.seed(456)
+  
+  X <- matrix(rnorm(200), nrow = 20, ncol = 10)
+  new_out <- selrho.useCVBIC(X, print.detail = FALSE)
+  old_out <- old_selrho.useCVBIC(X, print.detail = FALSE)
+  n <- length(old_out)
+  expect_true(new_out[1] == old_out[n-1],
+              info = sprintf("New rho =  %g and old rho = %g", new_out[1], old_out[n-1]))
+  expect_true(new_out[2] == old_out[n],
+              info = sprintf("New MinCVerr =  %g and old MinCVerr = %g", new_out[2], old_out[n]))
+})
+
+## -----------------------------------------------------------
+## 7.  DelOutlier  ------------------------------------------
+## -----------------------------------------------------------
+
+test_that("DelOutlier detects and removes extreme samples", {
+  set.seed(21)
+  X <- matrix(rnorm(200), 20, 10)
+  X[1, ] <- 10                               # big outlier row
+  
+  res <- DelOutlier(X)
+  expect_type(res, "list")
+  expect_named(res, c("delsampIdx", "X.out"), ignore.order = TRUE)
+  expect_true(1 %in% res$delsampIdx)
+  expect_equal(nrow(res$X.out), 19)
+})
+
+test_that("DelOutlier keeps data intact when no strong outliers", {
+  X <- matrix(rnorm(100), 10, 10)
+  res <- DelOutlier(X)
+  expect_length(res$delsampIdx, 0)
+  expect_equal(nrow(res$X.out), 10)
+})
+
+## -----------------------------------------------------------
+## 8.  ImputeOutlier  ---------------------------------------
+## -----------------------------------------------------------
+
+test_that("ImputeOutlier replaces extreme points and leaves no NAs", {
+  set.seed(31)
+  X <- matrix(rnorm(150), 15, 10)
+  X[5, 3] <- 30                              # extreme high value
+  
+  Y <- ImputeOutlier(X)
+  expect_equal(dim(Y), dim(X))
+  expect_false(anyNA(Y))
+  # Value should have shrunk toward centre (not remain extreme)
+  expect_true(abs(Y[5, 3]) < 10, info = sprintf("Y[5,3] is now %g", abs(Y[5, 3])))
 })
