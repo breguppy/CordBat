@@ -179,7 +179,7 @@ selrho.useCVBIC <- function(X, print.detail = TRUE) {
   
   if (print.detail) {
     message(
-      "CV + BIC selects rho = ", rho.cv,
+      "CVBIC selects rho = ", rho.cv,
       " with MinCVerr = ", round(MinCVerr, 4)
     )
   }
