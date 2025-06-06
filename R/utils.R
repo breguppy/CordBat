@@ -28,72 +28,75 @@ selfoldforCV <- function(N){
   return(fold)
 }
 
-# -------------------------------------------------------------
-# find best parameters ksi and gamma using EBIC
-# -------------------------------------------------------------
-old_findBestPara <- function(X0.glist, X1.glist, penal.rho, eps, print.detail) {
+
+#----------------------------------------------------
+# findBestPara: cached & vectorized EBIC grid search
+#----------------------------------------------------
+findBestPara <- function(X0.glist, X1.glist, penal.rho, eps, print.detail=FALSE) {
+  # special-case: identical data => default (1,1)
+  if (identical(X0.glist, X1.glist)) {
+    return(list(
+      penal.ksi   = 1,
+      penal.gamma = 1,
+      MinAvedist  = 0
+    ))
+  }
+  
   G <- length(X0.glist)
   p <- ncol(X0.glist[[1]])
+  r <- 0.5
+  logp <- log(p)
   
-  N0_gvec <- rep(0, G)
-  N1_gvec <- rep(0, G)
-  N_gvec <- rep(0, G)
-  for (g in 1:G) {
-    N0_gvec[g] <- nrow(X0.glist[[g]])
-    N1_gvec[g] <- nrow(X1.glist[[g]])
-    N_gvec[g] <- N0_gvec[g] + N1_gvec[g]
+  # sample sizes
+  N0 <- vapply(X0.glist, nrow, integer(1))
+  N1 <- vapply(X1.glist, nrow, integer(1))
+  N  <- N0 + N1
+  
+  # parameter grid
+  ksis   <- c(1, 0.5, 0.3, 0.1)
+  gammas <- ksis
+  params <- expand.grid(ksi=ksis, gamma=gammas, KEEP.OUT.ATTRS=FALSE)
+  nGrid  <- nrow(params)
+  
+  # store EBIC for each grid point
+  ebic_vals <- numeric(nGrid)
+  
+  # evaluate EBIC across grid
+  for (idx in seq_len(nGrid)) {
+    ksi   <- params$ksi[idx]
+    gamma <- params$gamma[idx]
+    
+    fit   <- BEgLasso(X0.glist, X1.glist, penal.rho, ksi, gamma, eps, print.detail)
+    X1c   <- fit$X1.cor
+    Theta <- fit$Theta
+    
+    # vectorized EBIC per group
+    ebic_g <- mapply(function(X0, X1cg, Th, Ni) {
+      Xgi   <- rbind(X0, X1cg)
+      Si    <- cov(scale(Xgi, center=TRUE, scale=TRUE))
+      detTh <- det(Th)
+      if (is.na(detTh) || detTh <= 0) return(Inf)
+      E     <- sum(Th[upper.tri(Th)] != 0)
+      -Ni * (log(detTh) - sum(Si * Th)) + E * log(Ni) + 4 * E * r * logp
+    }, X0.glist, X1c, Theta, N, SIMPLIFY=TRUE)
+    
+    ebic_vals[idx] <- sum(ebic_g)
   }
   
-  Sel.ksi <- 0
-  Sel.gamma <- 0
+  # pick minimal EBIC with tie-breaking: largest ksi, then largest gamma
+  best_val  <- min(ebic_vals)
+  best_idxs <- which(ebic_vals == best_val)
+  best_df   <- params[best_idxs, , drop=FALSE]
+  # order by increasing ksi then gamma
+  tie_order <- order(-best_df$ksi, -best_df$gamma)
+  chosen    <- best_idxs[tie_order[1]]
   
-  ksi_candidates <- c(1, 0.5, 0.3, 0.1)
-  gamma_candidates <- c(1, 0.5, 0.3, 0.1)
-  
-  MinAvedist <- Inf
-  
-  for (ksi in ksi_candidates) {
-    for (gamma in gamma_candidates) {
-      Allpara <- BEgLasso(X0.glist, X1.glist, penal.rho, ksi, gamma, eps, print.detail)
-      X1.cor.glist <- Allpara$X1.cor
-      Theta.list <- Allpara$Theta
-      
-      r <- 0.5
-      
-      ebic.gvec <- rep(0, G)
-      for (i in 1:G) {
-        X.gi <- rbind(X0.glist[[i]], X1.cor.glist[[i]])
-        X.gi.sca <- scale(X.gi, center = TRUE, scale = TRUE)
-        S_i <- cov(X.gi.sca)
-        Theta_i <- Theta.list[[i]]
-        E.num.gi <- sum(Theta_i[upper.tri(Theta_i, diag = FALSE)] != 0)
-        
-        # Check determinant of Theta_i before taking its log
-        detTheta <- det(Theta_i)
-        if (is.na(detTheta) || detTheta <= 0) {
-          ebic.gvec[i] <- Inf
-        } else {
-          ebic.gvec[i] <- - N_gvec[i] * (log(detTheta) - tr(S_i %*% Theta_i)) +
-            E.num.gi * log(N_gvec[i]) + 4 * E.num.gi * r * log(p)
-        }
-      }
-      
-      ebic <- sum(ebic.gvec)
-      
-      if (!is.na(ebic) && ebic < MinAvedist) {
-        MinAvedist <- ebic
-        Sel.ksi <- ksi
-        Sel.gamma <- gamma
-      }
-    }
-  }
-  
-  penterm <- list(penal.ksi = Sel.ksi,
-                  penal.gamma = Sel.gamma,
-                  MinAvedist = MinAvedist)
-  return(penterm)
+  list(
+    penal.ksi   = params$ksi[chosen],
+    penal.gamma = params$gamma[chosen],
+    MinAvedist  = ebic_vals[chosen]
+  )
 }
-
 
 
 # -------------------------------------------------------------

@@ -509,7 +509,71 @@ old_findBestPara <- function(X0.glist, X1.glist, penal.rho, eps, print.detail) {
   return(penterm)
 }
 
-
+# -------------------------------------------------------------
+# find best parameters ksi and gamma using EBIC
+# -------------------------------------------------------------
+old_findBestPara <- function(X0.glist, X1.glist, penal.rho, eps, print.detail) {
+  G <- length(X0.glist)
+  p <- ncol(X0.glist[[1]])
+  
+  N0_gvec <- rep(0, G)
+  N1_gvec <- rep(0, G)
+  N_gvec <- rep(0, G)
+  for (g in 1:G) {
+    N0_gvec[g] <- nrow(X0.glist[[g]])
+    N1_gvec[g] <- nrow(X1.glist[[g]])
+    N_gvec[g] <- N0_gvec[g] + N1_gvec[g]
+  }
+  
+  Sel.ksi <- 0
+  Sel.gamma <- 0
+  
+  ksi_candidates <- c(1, 0.5, 0.3, 0.1)
+  gamma_candidates <- c(1, 0.5, 0.3, 0.1)
+  
+  MinAvedist <- Inf
+  
+  for (ksi in ksi_candidates) {
+    for (gamma in gamma_candidates) {
+      Allpara <- BEgLasso(X0.glist, X1.glist, penal.rho, ksi, gamma, eps, print.detail)
+      X1.cor.glist <- Allpara$X1.cor
+      Theta.list <- Allpara$Theta
+      
+      r <- 0.5
+      
+      ebic.gvec <- rep(0, G)
+      for (i in 1:G) {
+        X.gi <- rbind(X0.glist[[i]], X1.cor.glist[[i]])
+        X.gi.sca <- scale(X.gi, center = TRUE, scale = TRUE)
+        S_i <- cov(X.gi.sca)
+        Theta_i <- Theta.list[[i]]
+        E.num.gi <- sum(Theta_i[upper.tri(Theta_i, diag = FALSE)] != 0)
+        
+        # Check determinant of Theta_i before taking its log
+        detTheta <- det(Theta_i)
+        if (is.na(detTheta) || detTheta <= 0) {
+          ebic.gvec[i] <- Inf
+        } else {
+          ebic.gvec[i] <- - N_gvec[i] * (log(detTheta) - tr(S_i %*% Theta_i)) +
+            E.num.gi * log(N_gvec[i]) + 4 * E.num.gi * r * log(p)
+        }
+      }
+      
+      ebic <- sum(ebic.gvec)
+      
+      if (!is.na(ebic) && ebic < MinAvedist) {
+        MinAvedist <- ebic
+        Sel.ksi <- ksi
+        Sel.gamma <- gamma
+      }
+    }
+  }
+  
+  penterm <- list(penal.ksi = Sel.ksi,
+                  penal.gamma = Sel.gamma,
+                  MinAvedist = MinAvedist)
+  return(penterm)
+}
 
 # -------------------------------------------------------------
 # CV + BIC select rho
