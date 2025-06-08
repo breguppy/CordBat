@@ -34,13 +34,10 @@ graphicalLasso <- function(X, rho, print.detail = TRUE) {
     S <- diag(ncol(X)) * 1e-4
   }
   
-  # ensure penality is only applied to the non-diagonal (like paper code)
-  rho.mat <- matrix(rho, nrow(S), ncol(S))
-  #diag(rho.mat) <- 0
   # call the fast C++ implementation
   #    this will error if glassoFast is missing, but
   #    since we put it in Imports, it should always be there.
-  out <- glassoFast::glassoFast(S, rho.mat, thr = 1e-5)
+  out <- glassoFast::glassoFast(S, rho, thr = 1e-5)
   
   # return the estimated precision and covariance matrices
   list(Theta = out$wi, W = out$w)

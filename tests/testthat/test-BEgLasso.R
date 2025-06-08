@@ -1,9 +1,6 @@
 library(testthat)
 library(CordBat)
 
-# Skip tests if glassoFast is not available
-skip_if_not_installed("glassoFast")
-
 # 1) Basic structural tests
 test_that("BEgLasso returns correct structure and types", {
   set.seed(123)
@@ -21,7 +18,7 @@ test_that("BEgLasso returns correct structure and types", {
                  nrow = nrow(mat), ncol = ncol(mat))
   })
   
-  res <- CordBat:::BEgLasso(
+  res <- BEgLasso(
     X0.glist     = X0.glist,
     X1.glist     = X1.glist,
     penal.rho    = 0.1,
@@ -77,7 +74,7 @@ test_that("BEgLasso yields identity-like coefficients when no batch effect", {
   # exact same data for group 1
   X1 <- X0
   
-  res2 <- CordBat:::BEgLasso(
+  res2 <- BEgLasso(
     X0.glist     = list(X0),
     X1.glist     = list(X0),
     penal.rho    = 0,
@@ -88,4 +85,60 @@ test_that("BEgLasso yields identity-like coefficients when no batch effect", {
   )
   expect_equal(res2$coef.a, rep(1, ncol(X0)), tolerance = 1e-6)
   expect_equal(res2$coef.b, rep(0, ncol(X0)), tolerance = 1e-6)
+})
+
+# test script for BEgLasso.R - testcases are NOT comprehensive!
+
+# ------------------------------------------------------------------
+# Helper for quickly generating toy data of matching dimensions ----
+# ------------------------------------------------------------------
+simulate_batches <- function(G = 2, n = 15, p = 6) {
+  X0 <- lapply(seq_len(G), \(.) matrix(rnorm(n * p), n, p))
+  X1 <- lapply(seq_len(G), \(.) matrix(rnorm(n * p), n, p))
+  list(X0 = X0, X1 = X1, p = p, G = G)
+}
+
+test_that("print.detail toggles console output / messages", {
+  set.seed(1)
+  batches <- simulate_batches(G = 1, n = 10, p = 4)
+  
+  # Silent mode
+  expect_silent(
+    BEgLasso(batches$X0, batches$X1,
+             penal.rho = 0.05, penal.ksi = 0.05, penal.gamma = 0.05,
+             eps = 1e-2, print.detail = FALSE)
+  )
+})
+
+test_that("Basic input validation — wrong shapes / types generate errors", {
+  
+  # Non‑list inputs ------------------------------------------------
+  expect_error(
+    BEgLasso(matrix(rnorm(20), 4, 5),
+             list(matrix(rnorm(20), 4, 5)),
+             penal.rho = 0.1, penal.ksi = 0.1, penal.gamma = 0.1,
+             eps = 1e-2, print.detail = FALSE),
+    regexp = "array"
+  )
+  
+  # List length mismatch -------------------------------------------
+  dat <- simulate_batches(G = 2, n = 10, p = 4)
+  expect_error(
+    BEgLasso(dat$X0, dat$X1[1],              # lengths differ
+             penal.rho = 0.1, penal.ksi = 0.1, penal.gamma = 0.1,
+             eps = 1e-2, print.detail = FALSE),
+    regexp = "non-conformable"
+  )
+})
+
+
+test_that("Output precision matrices are positive‑definite (eigenvalues > 0)", {
+  set.seed(888)
+  dat <- simulate_batches(G = 1, n = 20, p = 5)
+  res <- BEgLasso(dat$X0, dat$X1,
+                  penal.rho = 0.2, penal.ksi = 0.1, penal.gamma = 0.1,
+                  eps = 1e-2, print.detail = FALSE)
+  
+  eig <- eigen(res$Theta[[1]], symmetric = TRUE, only.values = TRUE)$values
+  expect_true(all(eig > 0))
 })

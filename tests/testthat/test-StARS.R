@@ -1,13 +1,6 @@
 # test script for StARS.R - testcases are NOT comprehensive!
 library(testthat)
 library(CordBat) 
-# -----------------------------------------------------------
-## Skip gracefully if dependencies are missing  --------------
-## -----------------------------------------------------------
-skip_if_not(
-  exists("graphicalLasso"),
-  message = "graphicalLasso() not found; skipping StARS tests"
-)
 
 ## -----------------------------------------------------------
 ## Helper: simulate quick toy data ---------------------------
@@ -25,7 +18,7 @@ test_that("StARS returns numeric vector of reasonable values", {
   set.seed(11)
   X <- sim_X()
   
-  out <- CordBat:::StARS(X, b = 12, M = 25, print.detail = FALSE)
+  out <- StARS(X, b = 12, M = 25, print.detail = FALSE)
   expect_type(out, "double")
   expect_length(out, 2)
   
@@ -42,8 +35,8 @@ test_that("StARS returns numeric vector of reasonable values", {
 test_that("StARS result is deterministic for given data", {
   X <- sim_X()
   
-  res1 <- CordBat:::StARS(X, b = 10, M = 20, print.detail = FALSE)
-  res2 <- CordBat:::StARS(X, b = 10, M = 20, print.detail = FALSE)
+  res1 <- StARS(X, b = 10, M = 20, print.detail = FALSE)
+  res2 <- StARS(X, b = 10, M = 20, print.detail = FALSE)
   expect_identical(res1, res2)
 })
 
@@ -53,9 +46,9 @@ test_that("StARS result is deterministic for given data", {
 test_that("print.detail controls console chatter", {
   X <- sim_X()
   # Silent execution
-  expect_silent(CordBat:::StARS(X, b = 8, M = 15, print.detail = FALSE))
+  expect_silent(StARS(X, b = 8, M = 15, print.detail = FALSE))
   # Verbose execution emits at least one message
-  expect_message(CordBat:::StARS(X, b = 8, M = 15, print.detail = TRUE),
+  expect_message(StARS(X, b = 8, M = 15, print.detail = TRUE),
                  regexp = ".", all = FALSE)
 })
 
@@ -65,13 +58,13 @@ test_that("print.detail controls console chatter", {
 test_that("StARS errors when b exceeds sample size", {
   X <- sim_X(n = 15, p = 5)
   # b larger than N should trigger an error from sample.int
-  expect_error(CordBat:::StARS(X, b = 20, M = 10, print.detail = FALSE),
+  expect_error(StARS(X, b = 20, M = 10, print.detail = FALSE),
                regexp = "cannot take a sample|sample.int")
 })
 
 test_that("b = 1 still returns valid output", {
   X <- sim_X(n = 10, p = 4)
-  out <- CordBat:::StARS(X, b = 1, M = 12, print.detail = FALSE)  # degenerate subsamples
+  out <- StARS(X, b = 1, M = 12, print.detail = FALSE)  # degenerate subsamples
   expect_length(out, 2)
   expect_true(out[2] <= beta_target + 1e-10)
 })
