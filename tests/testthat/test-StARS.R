@@ -43,7 +43,7 @@ test_that("StARS result is deterministic for given data", {
 ## -----------------------------------------------------------
 ## 3.  print.detail flag toggles console output --------------
 ## -----------------------------------------------------------
-test_that("print.detail controls console chatter", {
+test_that("StARS print.detail controls console chatter", {
   X <- sim_X()
   # Silent execution
   expect_silent(StARS(X, b = 8, M = 15, print.detail = FALSE))

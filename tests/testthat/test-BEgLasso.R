@@ -98,7 +98,7 @@ simulate_batches <- function(G = 2, n = 15, p = 6) {
   list(X0 = X0, X1 = X1, p = p, G = G)
 }
 
-test_that("print.detail toggles console output / messages", {
+test_that("BEgLasso print.detail toggles console output / messages", {
   set.seed(1)
   batches <- simulate_batches(G = 1, n = 10, p = 4)
   
@@ -110,7 +110,7 @@ test_that("print.detail toggles console output / messages", {
   )
 })
 
-test_that("Basic input validation — wrong shapes / types generate errors", {
+test_that("BEgLasso basic input validation — wrong shapes / types generate errors", {
   
   # Non‑list inputs ------------------------------------------------
   expect_error(
@@ -132,7 +132,7 @@ test_that("Basic input validation — wrong shapes / types generate errors", {
 })
 
 
-test_that("Output precision matrices are positive‑definite (eigenvalues > 0)", {
+test_that("BEgLasso output precision matrices are positive‑definite (eigenvalues > 0)", {
   set.seed(888)
   dat <- simulate_batches(G = 1, n = 20, p = 5)
   res <- BEgLasso(dat$X0, dat$X1,

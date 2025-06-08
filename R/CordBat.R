@@ -247,6 +247,9 @@ CordBat <- function(X,
                            print.detail)
       if (print.detail) {
         cat('finshed', '\n')
+        if (anyNA(para.out$coef.a) || anyNA(para.out$coef.b)) {
+          stop("Got NA in correction coefficients; aborting.")
+        }
       }
       
       # Update corrected data (X.cor.1) for this non-reference batch
@@ -266,8 +269,8 @@ CordBat <- function(X,
         Xcor.para[[k]]$Theta[[g_idx]][metID, metID] <- para.out$Theta[[j]]
       }
       # Assign the new scaling and offset coefficients
-      Xcor.para[[k]]$coef.a[metID] <- para.out$coef.a[metID]
-      Xcor.para[[k]]$coef.b[metID] <- para.out$coef.b[metID]
+      Xcor.para[[k]]$coef.a[metID] <- para.out$coef.a
+      Xcor.para[[k]]$coef.b[metID] <- para.out$coef.b
       
       # Update fully corrected data (X.cor) using outlier-free data (X.nodel)
       idx_nodel <- which(batch.old == batch_label)
@@ -284,15 +287,13 @@ CordBat <- function(X,
         if (length(qc_idx)) {
           # Use the same a/b you learned for this batch & community
           Nqc    <- length(qc_idx)
-          A_mat  <- diag(para.out$coef.a[metID])
-          B_mat  <- matrix(rep(para.out$coef.b[metID], each = Nqc), nrow = Nqc)
+          A_mat  <- diag(para.out$coef.a)
+          B_mat  <- matrix(rep(para.out$coef.b, each = Nqc), nrow = Nqc)
           X_cor_qc <- X_QC[QC_batch == batch_label, metID, drop=FALSE] %*% A_mat + B_mat
           X.cor.withQC[qc_idx, metID] <- X_cor_qc
         }
       }
     }
-    
-    
     
     if (print.detail) message("Finished correction of community ", i)
   }

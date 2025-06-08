@@ -1,21 +1,27 @@
-# tests/testthat/test-CordBat.R
-
 library(testthat)
 library(CordBat)
 
-# If CordBat is part of a package, replace with the correct library() call.
-# For example, if CordBat is exported by a package named "MyPackage", uncomment the line below:
-# library(MyPackage)
+sim_data <- function(n_batch = 2, per_batch = 6, p = 4, add_qc = FALSE) {
+  set.seed(333)
+  n  <- n_batch * per_batch + if (add_qc) 2 else 0
+  X  <- matrix(rnorm(n * p), n, p)
+  batch <- rep(seq_len(n_batch), each = per_batch)
+  if (add_qc) {
+    group <- c(rep(1, n - 2), "QC", "QC")
+    batch[(n - 1):n] <- 1                      # QC in ref batch
+  } else {
+    group <- rep(1, n)
+  }
+  list(X = X, batch = batch, group = group)
+}
 
 test_that("CordBat outputs have correct structure with skip.impute = TRUE", {
-  set.seed(123)
-  X <- matrix(rnorm(20), nrow = 5, ncol = 4)
-  batch <- rep(c("A", "B"), length.out = 5)
+  dat <- sim_data(n_batch = 3, per_batch = 6, p = 10, add_qc = FALSE)
   
-  res <- CordBat:::CordBat(
-    X          = X,
-    batch      = batch,
-    ref.batch  = "A",
+  res <- CordBat(
+    X          = dat$X,
+    batch      = dat$batch,
+    ref.batch  = 1,
     skip.impute = TRUE,
     print.detail = FALSE
   )
@@ -32,64 +38,55 @@ test_that("CordBat outputs have correct structure with skip.impute = TRUE", {
   expect_equal(res$delsampIdx, integer(0))
   
   # 3. batch.new should be the same as the input, coerced to character
-  expect_equal(res$batch.new, as.character(batch))
+  expect_equal(res$batch.new, as.character(dat$batch))
   
   # 4. X.delout should be identical to the original X (no outliers removed)
   expect_true(is.matrix(res$X.delout))
-  expect_equal(dim(res$X.delout), dim(X))
-  expect_equal(res$X.delout, X)
+  expect_equal(dim(res$X.delout), dim(dat$X))
+  expect_equal(res$X.delout, dat$X)
   
   # 5. X.cor should be a matrix with the same number of columns as X
   expect_true(is.matrix(res$X.cor))
-  expect_equal(ncol(res$X.cor), ncol(X))
+  expect_equal(ncol(res$X.cor), ncol(dat$X))
   
-  # 6. For rows in the reference batch ("A"), X.cor must equal the original X
-  ref_idx <- which(batch == "A")
-  expect_equal(res$X.cor[ref_idx, ], X[ref_idx, ])
+  # 6. For rows in the reference batch, X.cor must equal the original X
+  ref_idx <- which(dat$batch == 1)
+  expect_equal(res$X.cor[ref_idx, ], dat$X[ref_idx, ])
   
   # 7. X.cor.1 (correction on X.delout) for the reference batch should also match X
   expect_true(is.matrix(res$X.cor.1))
-  expect_equal(ncol(res$X.cor.1), ncol(X))
-  expect_equal(res$X.cor.1[ref_idx, ], X[ref_idx, ])
+  expect_equal(ncol(res$X.cor.1), ncol(dat$X))
+  expect_equal(res$X.cor.1[ref_idx, ], dat$X[ref_idx, ])
   
   # 8. Because there were no QC samples in this test, X.cor.withQC should be NULL
   expect_null(res$X.cor.withQC)
+  
 })
 
 test_that("CordBat handles QC samples when grouping = TRUE", {
-  set.seed(456)
-  # Construct a dataset with QC samples such that the reference batch has >=2 non-QC samples
-  X <- matrix(rnorm(24), nrow = 6, ncol = 4)
-  batch <- rep(c("A", "B"), each = 3)
-  # Assign groups: for batch "A": "1", "QC", "2"; for batch "B": "QC", "3", "QC"
-  group <- c("1", "QC", "2", "QC", "3", "QC")
-  
-  res <- CordBat:::CordBat(
-    X         = X,
-    batch     = batch,
-    group     = group,
-    grouping  = TRUE,
-    ref.batch = "A",
-    skip.impute = TRUE,
-    print.detail = FALSE
-  )
+  dat <- sim_data(add_qc = TRUE)
+  res <- CordBat(dat$X, dat$batch, dat$group,
+                 grouping     = TRUE,
+                 ref.batch    = 1,
+                 print.detail = FALSE,
+                 skip.impute  = TRUE)
   
   # 1. Because there are QC samples, X.cor.withQC must be a matrix of the same dimensions as X
   expect_true(is.matrix(res$X.cor.withQC))
-  expect_equal(dim(res$X.cor.withQC), dim(X))
+  expect_equal(dim(res$X.cor.withQC), dim(dat$X))
   
-  # 2. For QC samples in the reference batch ("A"), X.cor.withQC should equal the original X
-  ref_qc_idx <- which(batch == "A" & group == "QC")
-  expect_equal(res$X.cor.withQC[ref_qc_idx, ], X[ref_qc_idx, ])
+  # 2. For QC samples in the reference batch, X.cor.withQC should equal the original X
+  ref_qc_idx <- which(batch == 1 & group == "QC")
+  expect_equal(res$X.cor.withQC[ref_qc_idx, ], dat$X[ref_qc_idx, ])
   
   # 3. For non-QC samples in the reference batch, X.cor should equal the original X
-  nonQC_idx <- which(group != "QC")
-  ref_nonqc_orig <- which(batch == "A" & group != "QC")
+  nonQC_idx <- which(dat$group != "QC")
+  ref_nonqc_orig <- which(dat$batch == 1 & dat$group != "QC")
   ref_nonqc_positions <- match(ref_nonqc_orig, nonQC_idx)
   
   expect_equal(
     res$X.cor[ref_nonqc_positions, ],
-    X[ref_nonqc_orig, ]
+    dat$X[ref_nonqc_orig, ]
   )
   
   # 4. Because skip.impute = TRUE, no samples are removed
@@ -110,7 +107,7 @@ test_that("CordBat removes an extreme outlier from X.cor.1 when skip.impute = FA
   
   expect_gt(n_removed_outlier, 0)
   
-  res <- CordBat:::CordBat(
+  res <- CordBat(
     X           = X,
     batch       = batch,
     ref.batch   = "A",
@@ -137,3 +134,62 @@ test_that("CordBat removes an extreme outlier from X.cor.1 when skip.impute = FA
   found_matching <- any(apply(res$X.cor.1, 1, function(row) all(row == extreme_vec)))
   expect_false(found_matching)
 })
+
+test_that("print.detail produces messages", {
+  dat <- sim_data()
+  expect_silent(
+    CordBat(dat$X, dat$batch, ref.batch = 1,
+            print.detail = FALSE, skip.impute = TRUE)
+  )
+  
+  expect_message(
+    CordBat(dat$X, dat$batch, ref.batch = 1,
+            print.detail = TRUE, skip.impute = TRUE),
+    regexp = ".", all = FALSE
+  )
+})
+
+
+test_that("CordBat errors if ref.batch is not present", {
+  dat <- sim_data()
+  expect_error(
+    CordBat(dat$X, dat$batch, ref.batch = "nonexistent",
+            print.detail = FALSE, skip.impute = TRUE),
+    regexp = "invalid"
+  )
+})
+
+test_that("CordBat correctly saves correction parameters", {
+  dat <- sim_data(n_batch = 3, per_batch = 10, p = 15, add_qc = FALSE)
+  
+  res <- CordBat(
+    X          = dat$X,
+    batch      = dat$batch,
+    ref.batch  = 1,
+    skip.impute = TRUE,
+    print.detail = FALSE
+  )
+  
+  expect_type(res$Xcor.para, "list")
+  
+  # For rows in the reference batch, X.cor must equal the original X 
+  ref_idx <- which(dat$batch == 1)
+  expect_equal(res$X.cor[ref_idx, ], dat$X[ref_idx, ])
+  # coef.a should be all 1 and coef.b should be all 0
+  expect_equal(res$Xcor.para[[1]]$coef.a, rep(1,15))
+  expect_equal(res$Xcor.para[[1]]$coef.b, rep(0,15))
+  
+  # corrected batch 2 and 3 should equal A * X + b
+  batch2_idx <- which(dat$batch == 2)
+  batch2_Amat <- diag(res$Xcor.para[[2]]$coef.a)
+  batch2_bmat <- matrix(rep(res$Xcor.para[[2]]$coef.b, each = 10), nrow = 10)
+  batch2_cor <- dat$X[batch2_idx, ] %*% batch2_Amat + batch2_bmat
+  expect_equal(res$X.cor[batch2_idx, ], batch2_cor)
+  
+  batch3_idx <- which(dat$batch == 3)
+  batch3_Amat <- diag(res$Xcor.para[[3]]$coef.a)
+  batch3_bmat <- matrix(rep(res$Xcor.para[[3]]$coef.b, each = 10), nrow = 10)
+  batch3_cor <- dat$X[batch3_idx, ] %*% batch3_Amat + batch3_bmat
+  expect_equal(res$X.cor[batch3_idx, ], batch3_cor)
+})
+
