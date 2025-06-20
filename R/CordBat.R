@@ -293,6 +293,12 @@ CordBat <- function(X,
           X.cor.withQC[qc_idx, metID] <- X_cor_qc
         }
       }
+      if (containQC) {
+        # nonQC_idx_init are the rows in the original X.init that were not QC
+        nonQC_idx_init <- which(group.init != "QC")
+        # X.cor is in the same order as X.init[nonQC_idx_init, ]
+        X.cor.withQC[nonQC_idx_init, ] <- X.cor
+      }
     }
     
     if (print.detail) message("Finished correction of community ", i)
