@@ -193,3 +193,32 @@ test_that("CordBat correctly saves correction parameters", {
   expect_equal(res$X.cor[batch3_idx, ], batch3_cor)
 })
 
+test_that("CordBat: non-QC rows in X.cor.withQC match X.cor", {
+  # 1) Simulate a small toy dataset
+  set.seed(42)
+  X <- matrix(rnorm(8*3), nrow = 8, ncol = 3,
+              dimnames = list(NULL, paste0("M", 1:3)))
+  
+  # 2 batches of 4 each; in each batch mark the 4th row as QC
+  batch <- rep(1:2, each = 4)
+  group <- c("A", "A", "A", "QC", "B", "B", "B", "QC")
+  
+  # 2) Run CordBat, skipping outlier imputation for speed
+  res <- CordBat(
+    X           = X,
+    batch       = batch,
+    group       = group,
+    ref.batch   = 1,
+    skip.impute = TRUE,
+    print.detail= FALSE
+  )
+  
+  # 3) Identify non-QC indices
+  nonQC_orig_idx <- which(group != "QC")  
+  
+  # 4) Assert exact equality
+  expect_equal(
+    res$X.cor.withQC[nonQC_orig_idx, , drop = FALSE],
+    res$X.cor
+  )
+})
