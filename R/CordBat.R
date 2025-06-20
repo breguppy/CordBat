@@ -138,13 +138,13 @@ CordBat <- function(X,
   for (i in seq_len(batch.num)) Xcor.para[[i]] <- para
   
   # Initialize corrected matrices 
-  X.cor   <- matrix(0, nrow(X), p)
+  X.cor <- matrix(0, nrow(X.nodel), p)
   X.cor.1 <- matrix(0, nrow(X.delout), p)
   
   ref.batch_char <- as.character(ref.batch)
   ref.idx.old <- which(batch.old == ref.batch_char)
   ref.idx <- which(batch == ref.batch_char)
-  X.cor[ref.idx.old, ]   <- X.nodel[ref.idx.old, ]
+  X.cor[ref.idx.old, ] <- X.nodel[ref.idx.old, ]
   X.cor.1[ref.idx, ] <- X.delout[ref.idx, ]
   
   
@@ -162,87 +162,114 @@ CordBat <- function(X,
   if (print.detail) message("Community detection: ", length(COM), " communities", "\n",
                             "Size: ", paste(vapply(COM, length, integer(1)), collaspe = " "), "\n")
   
+  cl <- parallel::makeCluster(parallel::detectCores())
+  on.exit(parallel::stopCluster(cl), add = TRUE)
+  ## export all needed data & functions
+  parallel::clusterExport(cl,
+                          varlist = c("COM", "batch", "batch.old", "batch.levels", "batch.num",
+                                      "group", "group.levels", "group.num",
+                                      "X.delout", "X.nodel", "ref.batch_char",
+                                      "eps", "print.detail"),
+                          envir = environment()
+  )
+  parallel::clusterEvalQ(cl, { 
+    library(CordBat)        # for findBestPara, BEgLasso, StARS, selrho.useCVBIC, etc.
+    library(utils) 
+  })
+  
   # === Batch effect correction for each community ===
-  for (i in seq_along(COM)) {
+  comm_res <- parallel::parLapply(cl, seq_along(COM), function(i) {
     metID <- COM[[i]]
     
     # Build list for reference batch communities by group (skip groups with no data)
-    Xb0.COMi.glist <- vector("list", group.num)
-    valid_groups_ref <- logical(group.num)
+    X0_glist <- vector("list", group.num)
+    valid0   <- logical(group.num)
     for (g in seq_len(group.num)) {
-      grp_label <- group.levels[g]
-      idx <- which(batch == ref.batch_char & group == grp_label)
+      idx <- which(batch == ref.batch_char & group == group.levels[g])
       if (length(idx) > 0) {
-        Xb0.COMi.glist[[g]] <- X.delout[idx, metID, drop = FALSE]
-        valid_groups_ref[g] <- TRUE
+        X0_glist[[g]] <- X.delout[idx, metID, drop = FALSE]
+        valid0[g] <- TRUE
       } else {
-        valid_groups_ref[g] <- FALSE
+        valid0[g] <- FALSE
       }
     }
     # Keep only valid groups
-    Xb0.COMi.glist <- Xb0.COMi.glist[valid_groups_ref]
-    if (length(Xb0.COMi.glist) == 0) next  # skip community if no valid group exists
+    X0_glist <- X0_glist[valid0]
+    if (length(X0_glist) == 0) return(NULL)  # skip community if no valid group exists
     
     # Determine rho from the reference groups
-    if (print.detail) {  
-      detailOutput <- capture.output(
-        rhos <- sapply(Xb0.COMi.glist, function(mat) {
-          if (nrow(mat) > 5) {
-            # coarse grid
-            StARS(mat, round(0.7 * nrow(mat)), 100, print.detail)[1]
-            # fallback for very small batches
-          } else {
-            selrho.useCVBIC(mat, print.detail)[1]
-          }
-        }),
-        type = "message"
-      )
-      message(paste(unique(detailOutput), collapse = "\n"))
-    } else {
-      rhos <- sapply(Xb0.COMi.glist, function(mat) {
+    pick_rho <- function(mat) {
+      ## if someone passed you a 0×p matrix, bail out
+      if (nrow(mat) == 0) return( NA_real_ )
+      
+      ## choose which routine to call
+      safe_val <- tryCatch({
         if (nrow(mat) > 5) {
-          # coarse grid
           StARS(mat, round(0.7 * nrow(mat)), 100, print.detail)[1]
-          # fallback for very small batches
         } else {
           selrho.useCVBIC(mat, print.detail)[1]
         }
+      }, error = function(e) {
+        warning("pick_rho(): caught error, returning NA: ", e$message)
+        NA_real_
       })
+      
+      ## if they somehow gave you length-0 or NULL, coerce
+      if (length(safe_val) != 1 || is.null(safe_val)) {
+        safe_val <- NA_real_
+      }
+      
+      ## emit the StARS/CVBIC messages if requested
+      if (print.detail) {
+        ## re-capture and print only once
+        detailOutput <- capture.output({
+          if (nrow(mat) > 5) {
+            StARS(mat, round(0.7 * nrow(mat)), 100, print.detail)
+          } else {
+            selrho.useCVBIC(mat, print.detail)
+          }
+        }, type = "message")
+        message(paste(unique(detailOutput), collapse = "\n"))
+      }
+      
+      return(safe_val)
     }
     
-    rho <- mean(rhos, na.rm = TRUE)
-    if (print.detail) message("Set rho = ", rho)
+    rhos <- vapply(X0_glist, pick_rho, numeric(1))
+    rho  <- mean(rhos, na.rm = TRUE)
+    if (print.detail) message(" Community ", i, ": rho=", rho)
     
     # Process each non-reference batch
+    local_para <- vector("list", batch.num)
     for (k in seq_len(batch.num)) {
-      batch_label <- batch.levels[k]
-      if (batch_label == ref.batch_char) next
-      if (length(which(batch == batch_label)) < 2) next
+      lbl <- batch.levels[k]
+      if (lbl == ref.batch_char) next
+      if (length(which(batch == lbl)) < 2) next
       
       # Build list for non-reference batch communities by group
-      Xb1.Batk.COMi.glist <- vector("list", group.num)
-      valid_groups_nonref <- logical(group.num)
+      X1_glist <- vector("list", group.num)
+      valid1 <- logical(group.num)
       for (g in seq_len(group.num)) {
         grp_label <- group.levels[g]
-        idx <- which(batch == batch_label & group == grp_label)
+        idx <- which(batch == lbl & group == grp_label)
         if (length(idx) > 0) {
-          Xb1.Batk.COMi.glist[[g]] <- X.delout[idx, metID, drop = FALSE]
-          valid_groups_nonref[g] <- TRUE
+          X1_glist[[g]] <- X.delout[idx, metID, drop = FALSE]
+          valid1[g] <- TRUE
         } else {
-          valid_groups_nonref[g] <- FALSE
+          valid1[g] <- FALSE
         }
       }
-      Xb1.Batk.COMi.glist <- Xb1.Batk.COMi.glist[valid_groups_nonref]
-      if (length(Xb1.Batk.COMi.glist) == 0) next  # skip if no valid groups
+      X1_glist <- X1_glist[valid1]
+      if (length(X1_glist) == 0) next  # skip if no valid groups
       
       # Use the valid reference and non-reference groups in downstream functions
-      penterm <- findBestPara(Xb0.COMi.glist, Xb1.Batk.COMi.glist, rho, eps, print.detail)
+      penterm <- findBestPara(X0_glist, X1_glist, rho, eps, print.detail)
       
       if (print.detail) {
         cat('Batch ', k, ' correction begin......')
       }
       
-      para.out <- BEgLasso(Xb0.COMi.glist, Xb1.Batk.COMi.glist, rho, 
+      para.out <- BEgLasso(X0_glist, X1_glist, rho, 
                            penterm$penal.ksi, penterm$penal.gamma, eps, 
                            print.detail)
       if (print.detail) {
@@ -252,57 +279,73 @@ CordBat <- function(X,
         }
       }
       
+      local_para[[k]] <- list(
+        metID       = metID,
+        valid1      = valid1,
+        coef.a      = para.out$coef.a,
+        coef.b      = para.out$coef.b,
+        Theta       = para.out$Theta,
+        X1.cor.list = para.out$X1.cor
+      )
+    }
+    
+    list(community = i, result = local_para)
+  })
+      
       # Update corrected data (X.cor.1) for this non-reference batch
       # We update for each valid group; note that the order in Xb1.Batk.COMi.glist now corresponds 
       # to the subset of groups with data (which we can retrieve from valid_groups_nonref)
-      valid_grp_indices <- which(valid_groups_nonref)
-      for (j in seq_along(valid_grp_indices)) {
-        g_idx <- valid_grp_indices[j]
-        idx <- which(batch == batch_label & group == group.levels[g_idx])
-        X.cor.1[idx, metID] <- para.out$X1.cor[[j]]
+  for (res in comm_res) {
+    if (is.null(res)) next
+    for (k in seq_along(res$result)) {
+      entry <- res$result[[k]]
+      if (is.null(entry)) next
+      
+      metID  <- entry$metID
+      v1     <- entry$valid1
+      ga     <- which(v1)           # positions in group.levels
+      X1list <- entry$X1.cor.list
+      
+      ## 1) fill X.cor.1
+      for (j in seq_along(ga)) {
+        gpos <- ga[j]
+        rows <- which(batch == batch.levels[k] & group == group.levels[gpos])
+        X.cor.1[rows, metID] <- X1list[[j]]
       }
       
-      # Populate Xcor.para with learned Theta and a/b for this batch & community
-      for (j in seq_along(valid_grp_indices)) {
-        g_idx <- valid_grp_indices[j]
-        # Assign the submatrix of precision
-        Xcor.para[[k]]$Theta[[g_idx]][metID, metID] <- para.out$Theta[[j]]
-      }
-      # Assign the new scaling and offset coefficients
-      Xcor.para[[k]]$coef.a[metID] <- para.out$coef.a
-      Xcor.para[[k]]$coef.b[metID] <- para.out$coef.b
-      
-      # Update fully corrected data (X.cor) using outlier-free data (X.nodel)
-      idx_nodel <- which(batch.old == batch_label)
-      if (length(idx_nodel) > 0) {
-        Xb1.nodel <- X.nodel[idx_nodel, , drop = FALSE]
-        N1 <- nrow(Xb1.nodel)
-        coef.A <- diag(para.out$coef.a)
-        coef.B <- matrix(rep(para.out$coef.b, each = N1), nrow = N1)
-        X.cor[idx_nodel, metID] <- Xb1.nodel[, metID] %*% coef.A + coef.B
-      }
-      
-      if ((!is.na(containQC)) & containQC) {
-        qc_idx <- which(batch.init == batch_label & group.init == "QC")
-        if (length(qc_idx)) {
-          # Use the same a/b you learned for this batch & community
-          Nqc    <- length(qc_idx)
-          A_mat  <- diag(para.out$coef.a)
-          B_mat  <- matrix(rep(para.out$coef.b, each = Nqc), nrow = Nqc)
-          X_cor_qc <- X_QC[QC_batch == batch_label, metID, drop=FALSE] %*% A_mat + B_mat
-          X.cor.withQC[qc_idx, metID] <- X_cor_qc
-        }
-      }
-      if (containQC) {
-        # nonQC_idx_init are the rows in the original X.init that were not QC
-        nonQC_idx_init <- which(group.init != "QC")
-        # X.cor is in the same order as X.init[nonQC_idx_init, ]
-        X.cor.withQC[nonQC_idx_init, ] <- X.cor
+      ## 2) record parameters
+      Xcor.para[[k]]$coef.a[metID] <- entry$coef.a
+      Xcor.para[[k]]$coef.b[metID] <- entry$coef.b
+      for (j in seq_along(ga)) {
+        Xcor.para[[k]]$Theta[[ ga[j] ]][ metID, metID ] <- entry$Theta[[j]]
       }
     }
-    
-    if (print.detail) message("Finished correction of community ", i)
   }
+  
+  X.cor <- matrix(0, nrow = nrow(X.nodel), ncol = p)
+  for (k in seq_len(batch.num)) {
+    lbl <- batch.levels[k]
+    rows <- which(batch.old == lbl)
+    if (length(rows)==0) next
+    A <- diag(Xcor.para[[k]]$coef.a)
+    B <- matrix(Xcor.para[[k]]$coef.b, nrow = length(rows), ncol = p, byrow = TRUE)
+    X.cor[rows, ] <- X.nodel[ rows, ] %*% A + B
+  }
+  
+  ## --- build X.cor.withQC if needed ---
+  X.cor.withQC <- NULL
+  if (containQC) {
+    X.cor.withQC <- matrix(0, nrow = nrow(X.init), ncol = p)
+    ## ref‐batch QCs and non‐QC rows
+    refq <- which(batch.init == ref.batch_char & group.init=="QC")
+    if (length(refq)) X.cor.withQC[refq, ] <- X.init[refq, ]
+    nonQC <- which(group.init != "QC")
+    X.cor.withQC[nonQC, ] <- X.cor
+  }
+  
+    
+#    if (print.detail) message("Finished correction of community ", i)
+#  }
   
   return(list(batch.level = batch.levels, 
               delsampIdx = delsampIdx, 
