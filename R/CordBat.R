@@ -162,8 +162,20 @@ CordBat <- function(X,
   if (print.detail) message("Community detection: ", length(COM), " communities", "\n",
                             "Size: ", paste(vapply(COM, length, integer(1)), collaspe = " "), "\n")
   
+  numCores <- parallel::detectCores()
+  if (print.detail) {
+    message("Detected ", numCores, " logical cores on this machine.")
+  }
+  
   cl <- parallel::makeCluster(parallel::detectCores())
   on.exit(parallel::stopCluster(cl), add = TRUE)
+  
+  ## double‐check the cluster size
+  numWorkers <- length(cl)
+  if (print.detail) {
+    message("Spun up a PSOCK cluster with ", numWorkers, " workers.")
+  }
+  
   ## export all needed data & functions
   parallel::clusterExport(cl,
                           varlist = c("COM", "batch", "batch.old", "batch.levels", "batch.num",
@@ -287,6 +299,10 @@ CordBat <- function(X,
         Theta       = para.out$Theta,
         X1.cor.list = para.out$X1.cor
       )
+    }
+    
+    if (print.detail) {
+      message("Worker [", Sys.getpid(), "] finished community ", i)
     }
     
     list(community = i, result = local_para)
