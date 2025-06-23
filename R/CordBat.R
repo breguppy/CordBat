@@ -163,17 +163,17 @@ CordBat <- function(X,
                             "Size: ", paste(vapply(COM, length, integer(1)), collaspe = " "), "\n")
   
   numCores <- parallel::detectCores()
+  nWorkers <- min(numCores, length(COM))
   if (print.detail) {
-    message("Detected ", numCores, " logical cores on this machine.")
+    message("Detected ", numCores, " logical cores; launching ", nWorkers, " worker(s).")
   }
   
-  cl <- parallel::makeCluster(parallel::detectCores())
+  cl <- parallel::makeCluster(nWorkers, outfile = "cluster.log")
   on.exit(parallel::stopCluster(cl), add = TRUE)
   
   ## double‐check the cluster size
-  numWorkers <- length(cl)
   if (print.detail) {
-    message("Spun up a PSOCK cluster with ", numWorkers, " workers.")
+    message("Spun up a PSOCK cluster with ", length(cl), " workers.")
   }
   
   ## export all needed data & functions
@@ -189,8 +189,9 @@ CordBat <- function(X,
     library(utils) 
   })
   
+
   # === Batch effect correction for each community ===
-  comm_res <- parallel::parLapply(cl, seq_along(COM), function(i) {
+  comm_res <- pbapply::pblapply(X = seq_along(COM), FUN = function(i) {
     metID <- COM[[i]]
     
     # Build list for reference batch communities by group (skip groups with no data)
@@ -249,7 +250,10 @@ CordBat <- function(X,
     
     rhos <- vapply(X0_glist, pick_rho, numeric(1))
     rho  <- mean(rhos, na.rm = TRUE)
-    if (print.detail) message(" Community ", i, ": rho=", rho)
+    if (print.detail) {
+      cat(" Community ", i, ": rho=", rho, "\n")
+      flush.console()
+    }
     
     # Process each non-reference batch
     local_para <- vector("list", batch.num)
@@ -278,7 +282,8 @@ CordBat <- function(X,
       penterm <- findBestPara(X0_glist, X1_glist, rho, eps, print.detail)
       
       if (print.detail) {
-        cat('Batch ', k, ' correction begin......')
+        cat('Community ', i, ' Batch ', k, ' correction begin......')
+        flush.console()
       }
       
       para.out <- BEgLasso(X0_glist, X1_glist, rho, 
@@ -286,6 +291,7 @@ CordBat <- function(X,
                            print.detail)
       if (print.detail) {
         cat('finshed', '\n')
+        flush.console()
         if (anyNA(para.out$coef.a) || anyNA(para.out$coef.b)) {
           stop("Got NA in correction coefficients; aborting.")
         }
@@ -302,11 +308,12 @@ CordBat <- function(X,
     }
     
     if (print.detail) {
-      message("Worker [", Sys.getpid(), "] finished community ", i)
+      cat("Worker [", Sys.getpid(), "] finished community ", i, "\n")
+      flush.console()
     }
     
     list(community = i, result = local_para)
-  })
+  }, cl = cl)
       
       # Update corrected data (X.cor.1) for this non-reference batch
       # We update for each valid group; note that the order in Xb1.Batk.COMi.glist now corresponds 
@@ -359,9 +366,6 @@ CordBat <- function(X,
     X.cor.withQC[nonQC, ] <- X.cor
   }
   
-    
-#    if (print.detail) message("Finished correction of community ", i)
-#  }
   
   return(list(batch.level = batch.levels, 
               delsampIdx = delsampIdx, 

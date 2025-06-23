@@ -22,7 +22,8 @@ Imports:
     RcppArmadillo,
     huge,
     CVglasso,
-    parallel
+    parallel,
+    pbapply
 LinkingTo:
     Rcpp,
     RcppArmadillo
